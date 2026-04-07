@@ -1,0 +1,37 @@
+modLoader="javafml"
+loaderVersion="[36,)"
+license="All rights reserved"
+issueTrackerURL="https://github.com/MrSmith125/thaumic-wards/issues"
+
+[[mods]]
+modId="thaumic_wards"
+version="${file.jarVersion}"
+displayName="Thaumic Wards"
+authors="MagicSMP Team"
+description='''
+A magic-themed server performance optimization and faction/claim system for heavily modded Minecraft 1.16.5 servers.
+
+Features:
+- Server performance optimizations (chunk load limiting, entity tick reduction)
+- Chunk pre-generation with progress tracking
+- Magic-themed world border with particle effects
+- Ward spell-based area claiming with magical forcefields
+- Tiered faction system with guild halls and ranks
+- Designed for use with Thaumaturgy: Mystifying Magic
+'''
+
+# Forge dependency
+[[dependencies.thaumic_wards]]
+    modId="forge"
+    mandatory=true
+    versionRange="[36,)"
+    ordering="NONE"
+    side="BOTH"
+
+# Minecraft dependency
+[[dependencies.thaumic_wards]]
+    modId="minecraft"
+    mandatory=true
+    versionRange="[1.16.5,1.17)"
+    ordering="NONE"
+    side="BOTH"
