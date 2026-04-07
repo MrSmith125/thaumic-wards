@@ -25,8 +25,10 @@ public class ModNetwork {
         CHANNEL.registerMessage(nextId(), PregenProgressPacket.class,
                 PregenProgressPacket::encode, PregenProgressPacket::decode, PregenProgressPacket::handle);
 
+        CHANNEL.registerMessage(nextId(), BorderParticlePacket.class,
+                BorderParticlePacket::encode, BorderParticlePacket::decode, BorderParticlePacket::handle);
+
         // Future packets:
-        // CHANNEL.registerMessage(nextId(), BorderParticlePacket.class, ...);
         // CHANNEL.registerMessage(nextId(), ClaimBoundaryPacket.class, ...);
         // CHANNEL.registerMessage(nextId(), FactionSyncPacket.class, ...);
         ThaumicWards.LOGGER.info("Thaumic Wards network channel initialized.");

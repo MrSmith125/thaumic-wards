@@ -1,5 +1,7 @@
 package com.thaumicwards.events;
 
+import com.thaumicwards.border.BorderEnforcementHandler;
+import com.thaumicwards.border.BorderSavedData;
 import com.thaumicwards.commands.ModCommands;
 import com.thaumicwards.core.ThaumicWards;
 import com.thaumicwards.performance.ChunkLoadHandler;
@@ -26,6 +28,10 @@ public class ModEventHandler {
         MinecraftForge.EVENT_BUS.register(EntityTickHandler.class);
         MinecraftForge.EVENT_BUS.register(ChunkLoadHandler.class);
         MinecraftForge.EVENT_BUS.register(ServerTickHandler.class);
+        // Register border enforcement
+        MinecraftForge.EVENT_BUS.register(BorderEnforcementHandler.class);
+        // Load border data
+        BorderSavedData.get(event.getServer().overworld());
     }
 
     @SubscribeEvent
