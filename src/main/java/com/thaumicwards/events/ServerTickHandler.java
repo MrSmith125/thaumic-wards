@@ -2,6 +2,7 @@ package com.thaumicwards.events;
 
 import com.thaumicwards.performance.ChunkLoadHandler;
 import com.thaumicwards.performance.TickRateManager;
+import com.thaumicwards.pregen.PregenManager;
 import net.minecraft.world.server.ServerWorld;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -26,6 +27,7 @@ public class ServerTickHandler {
         // Reset chunk load counter each tick
         ChunkLoadHandler.resetCounter();
 
-        // PregenManager.tick() will be called here once implemented
+        // Run chunk pre-generation if active
+        PregenManager.tick(world);
     }
 }

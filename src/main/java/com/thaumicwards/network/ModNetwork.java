@@ -22,8 +22,10 @@ public class ModNetwork {
     }
 
     public static void init() {
-        // Packets will be registered here as features are implemented:
-        // CHANNEL.registerMessage(nextId(), PregenProgressPacket.class, ...);
+        CHANNEL.registerMessage(nextId(), PregenProgressPacket.class,
+                PregenProgressPacket::encode, PregenProgressPacket::decode, PregenProgressPacket::handle);
+
+        // Future packets:
         // CHANNEL.registerMessage(nextId(), BorderParticlePacket.class, ...);
         // CHANNEL.registerMessage(nextId(), ClaimBoundaryPacket.class, ...);
         // CHANNEL.registerMessage(nextId(), FactionSyncPacket.class, ...);

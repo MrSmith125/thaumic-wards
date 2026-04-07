@@ -15,8 +15,7 @@ public class ModCommands {
                 .then(Commands.literal("help").executes(ModCommands::showHelp))
                 .executes(ModCommands::showHelp)
         );
-        // Subcommands will be registered here as they are implemented:
-        // PregenCommand.register(dispatcher);
+        PregenCommand.register(dispatcher);
         // BorderCommand.register(dispatcher);
         // ClaimCommand.register(dispatcher);
         // FactionCommand.register(dispatcher);
