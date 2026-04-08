@@ -1,5 +1,7 @@
 package com.thaumicwards.claims;
 
+import com.thaumicwards.blocks.ModBlocks;
+import net.minecraft.block.BlockState;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.player.ServerPlayerEntity;
@@ -62,6 +64,15 @@ public class ClaimProtectionHandler {
 
         PlayerEntity player = event.getPlayer();
         ChunkPos chunkPos = new ChunkPos(event.getPos());
+
+        // Allow interaction with outpost blocks in outpost-claimed chunks (for raiding)
+        BlockState blockState = event.getWorld().getBlockState(event.getPos());
+        if (blockState.getBlock() == ModBlocks.OUTPOST.get()) {
+            ClaimData claim = ClaimManager.getClaimAt(chunkPos);
+            if (claim != null && claim.isOutpost()) {
+                return; // Allow — the OutpostBlock.use() handles friend/foe logic
+            }
+        }
 
         if (!ClaimManager.canPlayerInteract(chunkPos, player.getUUID())) {
             event.setCanceled(true);

@@ -21,10 +21,16 @@ public class ModBlocks {
     public static final RegistryObject<Block> GUILD_NEXUS = BLOCKS.register("guild_nexus",
             GuildNexusBlock::new);
 
+    public static final RegistryObject<Block> OUTPOST = BLOCKS.register("outpost",
+            OutpostBlock::new);
+
     // Register block items
     public static final RegistryObject<Item> WARD_STONE_ITEM = ModItems.ITEMS.register("ward_stone",
             () -> new BlockItem(WARD_STONE.get(), new Item.Properties().tab(ItemGroup.TAB_BUILDING_BLOCKS)));
 
     public static final RegistryObject<Item> GUILD_NEXUS_ITEM = ModItems.ITEMS.register("guild_nexus",
             () -> new BlockItem(GUILD_NEXUS.get(), new Item.Properties().tab(ItemGroup.TAB_BUILDING_BLOCKS)));
+
+    public static final RegistryObject<Item> OUTPOST_ITEM = ModItems.ITEMS.register("outpost",
+            () -> new BlockItem(OUTPOST.get(), new Item.Properties().tab(ItemGroup.TAB_BUILDING_BLOCKS)));
 }

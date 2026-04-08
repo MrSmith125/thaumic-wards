@@ -2,6 +2,11 @@ package com.thaumicwards.events;
 
 import com.thaumicwards.claims.ClaimData;
 import com.thaumicwards.claims.ClaimManager;
+import com.thaumicwards.config.ServerConfig;
+import com.thaumicwards.factions.FactionManager;
+import com.thaumicwards.factions.Faction;
+import com.thaumicwards.factions.FactionWarStatus;
+import com.thaumicwards.factions.ProgressionManager;
 import com.thaumicwards.network.ClaimBoundaryPacket;
 import com.thaumicwards.network.ModNetwork;
 import com.thaumicwards.performance.ChunkLoadHandler;
@@ -20,6 +25,9 @@ import java.util.List;
 public class ServerTickHandler {
 
     private static int claimParticleCounter = 0;
+    private static int progressionCounter = 0;
+    private static int warStatusCounter = 0;
+    private static int buffCounter = 0;
 
     @SubscribeEvent
     public static void onServerTick(TickEvent.WorldTickEvent event) {
@@ -42,6 +50,27 @@ public class ServerTickHandler {
         // Run chunk pre-generation if active
         PregenManager.tick(world);
 
+        // Progression system — award playtime points every 1200 ticks (1 minute)
+        progressionCounter++;
+        if (progressionCounter >= 1200) {
+            progressionCounter = 0;
+            ProgressionManager.tick(world);
+        }
+
+        // War status recalculation
+        warStatusCounter++;
+        if (warStatusCounter >= ServerConfig.BUFF_RECALCULATION_INTERVAL_TICKS.get()) {
+            warStatusCounter = 0;
+            FactionWarStatus.recalculate();
+        }
+
+        // Faction buff application
+        buffCounter++;
+        if (buffCounter >= ServerConfig.BUFF_APPLICATION_INTERVAL_TICKS.get()) {
+            buffCounter = 0;
+            FactionBuffHandler.applyBuffs(world);
+        }
+
         // Send claim boundary particles to nearby players every 40 ticks
         claimParticleCounter++;
         if (claimParticleCounter >= 40) {
@@ -58,13 +87,23 @@ public class ServerTickHandler {
             if (!nearbyClaims.isEmpty()) {
                 List<ChunkPos> chunks = new ArrayList<>();
                 List<Boolean> isGuild = new ArrayList<>();
+                List<String> factionIds = new ArrayList<>();
                 for (ClaimData claim : nearbyClaims) {
                     chunks.add(claim.getChunkPos());
                     isGuild.add(claim.isGuild());
+                    // Determine faction string ID for coloring
+                    String factionStringId = "";
+                    if (claim.isGuild() && claim.getFactionId() != null) {
+                        Faction faction = FactionManager.getFaction(claim.getFactionId());
+                        if (faction != null) {
+                            factionStringId = faction.getStringId();
+                        }
+                    }
+                    factionIds.add(factionStringId);
                 }
                 ModNetwork.CHANNEL.send(
                         PacketDistributor.PLAYER.with(() -> player),
-                        new ClaimBoundaryPacket(chunks, isGuild));
+                        new ClaimBoundaryPacket(chunks, isGuild, factionIds));
             }
         }
     }

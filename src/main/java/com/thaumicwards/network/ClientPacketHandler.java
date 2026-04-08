@@ -75,7 +75,7 @@ public class ClientPacketHandler {
         }
     }
 
-    public static void handleClaimBoundary(List<ChunkPos> claimedChunks, List<Boolean> isGuild) {
+    public static void handleClaimBoundary(List<ChunkPos> claimedChunks, List<Boolean> isGuild, List<String> factionIds) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null || mc.player == null) return;
 
@@ -84,11 +84,12 @@ public class ClientPacketHandler {
         for (int i = 0; i < claimedChunks.size(); i++) {
             ChunkPos chunk = claimedChunks.get(i);
             boolean guild = isGuild.get(i);
-            spawnBoundaryParticles(mc, chunk, guild, playerY);
+            String factionId = i < factionIds.size() ? factionIds.get(i) : "";
+            spawnBoundaryParticles(mc, chunk, guild, factionId, playerY);
         }
     }
 
-    private static void spawnBoundaryParticles(Minecraft mc, ChunkPos chunk, boolean guild, double playerY) {
+    private static void spawnBoundaryParticles(Minecraft mc, ChunkPos chunk, boolean guild, String factionId, double playerY) {
         int baseX = chunk.getMinBlockX();
         int baseZ = chunk.getMinBlockZ();
 
@@ -108,7 +109,14 @@ public class ClientPacketHandler {
                 double y = playerY + rand.nextDouble() * 4 - 2;
 
                 if (guild) {
-                    mc.level.addParticle(ParticleTypes.WITCH, x, y, z, 0, 0.02, 0);
+                    // Faction-colored particles for guild claims
+                    if ("crimsons".equals(factionId)) {
+                        mc.level.addParticle(ParticleTypes.FLAME, x, y, z, 0, 0.01, 0);
+                    } else if ("mystics".equals(factionId)) {
+                        mc.level.addParticle(ParticleTypes.SOUL_FIRE_FLAME, x, y, z, 0, 0.01, 0);
+                    } else {
+                        mc.level.addParticle(ParticleTypes.WITCH, x, y, z, 0, 0.02, 0);
+                    }
                 } else {
                     mc.level.addParticle(ParticleTypes.ENCHANT, x, y, z, 0, 0.05, 0);
                 }

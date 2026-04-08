@@ -9,7 +9,8 @@ public class ClaimData {
 
     public enum ClaimType {
         PERSONAL,
-        GUILD
+        GUILD,
+        OUTPOST
     }
 
     private final ChunkPos chunkPos;
@@ -46,6 +47,7 @@ public class ClaimData {
 
     public boolean isPersonal() { return type == ClaimType.PERSONAL; }
     public boolean isGuild() { return type == ClaimType.GUILD; }
+    public boolean isOutpost() { return type == ClaimType.OUTPOST; }
 
     public CompoundNBT serializeNBT() {
         CompoundNBT nbt = new CompoundNBT();

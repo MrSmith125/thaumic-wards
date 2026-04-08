@@ -21,15 +21,45 @@ public class ServerConfig {
     public static final ForgeConfigSpec.IntValue BORDER_WARNING_DISTANCE;
     public static final ForgeConfigSpec.DoubleValue BORDER_DAMAGE;
 
-    // Claims
-    public static final ForgeConfigSpec.IntValue MAX_PERSONAL_CLAIMS;
+    // Claims — Guild
     public static final ForgeConfigSpec.IntValue MAX_GUILD_HALL_CLAIMS;
     public static final ForgeConfigSpec.IntValue CLAIMS_PER_FACTION_MEMBER;
     public static final ForgeConfigSpec.IntValue CLAIM_EXPIRE_AFTER_DAYS;
 
+    // Claims — Per-Rank Personal Limits
+    public static final ForgeConfigSpec.IntValue CLAIMS_INITIATE;
+    public static final ForgeConfigSpec.IntValue CLAIMS_ACOLYTE;
+    public static final ForgeConfigSpec.IntValue CLAIMS_WARLOCK;
+    public static final ForgeConfigSpec.IntValue CLAIMS_ARCHMAGE;
+    public static final ForgeConfigSpec.IntValue CLAIMS_LEADER;
+
+    // Outposts (Raid System)
+    public static final ForgeConfigSpec.IntValue OUTPOST_HEALTH;
+    public static final ForgeConfigSpec.IntValue OUTPOST_DAMAGE_PER_HIT;
+    public static final ForgeConfigSpec.IntValue OUTPOST_HIT_COOLDOWN_SECONDS;
+    public static final ForgeConfigSpec.IntValue OUTPOST_RECAPTURE_COOLDOWN_MINUTES;
+    public static final ForgeConfigSpec.BooleanValue RAID_WINDOW_ENABLED;
+    public static final ForgeConfigSpec.IntValue RAID_WINDOW_START_HOUR;
+    public static final ForgeConfigSpec.IntValue RAID_WINDOW_END_HOUR;
+
     // Factions
-    public static final ForgeConfigSpec.IntValue MAX_FACTION_NAME_LENGTH;
     public static final ForgeConfigSpec.IntValue MAX_FACTION_MEMBERS;
+
+    // War Status & Buffs
+    public static final ForgeConfigSpec.IntValue BUFF_RECALCULATION_INTERVAL_TICKS;
+    public static final ForgeConfigSpec.IntValue BUFF_APPLICATION_INTERVAL_TICKS;
+    public static final ForgeConfigSpec.IntValue KILL_SCORE_WEIGHT;
+    public static final ForgeConfigSpec.IntValue OUTPOST_SCORE_WEIGHT;
+    public static final ForgeConfigSpec.IntValue WINNING_MARGIN;
+    public static final ForgeConfigSpec.IntValue CONTESTED_ZONE_KILL_MULTIPLIER;
+    public static final ForgeConfigSpec.BooleanValue BUFF_SPEED_ENABLED;
+    public static final ForgeConfigSpec.IntValue BUFF_XP_BONUS_PERCENT;
+
+    // Progression
+    public static final ForgeConfigSpec.IntValue ARCANE_POWER_PER_MINUTE;
+    public static final ForgeConfigSpec.IntValue ARCANE_POWER_PER_KILL;
+    public static final ForgeConfigSpec.LongValue ACOLYTE_THRESHOLD;
+    public static final ForgeConfigSpec.LongValue WARLOCK_THRESHOLD;
 
     static {
         ForgeConfigSpec.Builder builder = new ForgeConfigSpec.Builder();
@@ -71,9 +101,6 @@ public class ServerConfig {
         builder.pop();
 
         builder.comment("Area Claiming Settings").push("claims");
-        MAX_PERSONAL_CLAIMS = builder
-                .comment("Maximum number of chunks a single player can claim personally")
-                .defineInRange("maxPersonalClaims", 9, 1, 256);
         MAX_GUILD_HALL_CLAIMS = builder
                 .comment("Base maximum number of chunks a faction guild hall can claim")
                 .defineInRange("maxGuildHallClaims", 25, 1, 1024);
@@ -83,15 +110,96 @@ public class ServerConfig {
         CLAIM_EXPIRE_AFTER_DAYS = builder
                 .comment("Days of owner inactivity before a claim expires (0 = never)")
                 .defineInRange("claimExpireAfterDays", 30, 0, 365);
+
+        builder.comment("Per-rank personal claim limits").push("rankClaims");
+        CLAIMS_INITIATE = builder
+                .comment("Max personal claims for Initiate rank")
+                .defineInRange("claimsInitiate", 1, 1, 50);
+        CLAIMS_ACOLYTE = builder
+                .comment("Max personal claims for Acolyte rank")
+                .defineInRange("claimsAcolyte", 3, 1, 50);
+        CLAIMS_WARLOCK = builder
+                .comment("Max personal claims for Warlock rank")
+                .defineInRange("claimsWarlock", 6, 1, 50);
+        CLAIMS_ARCHMAGE = builder
+                .comment("Max personal claims for Archmage rank")
+                .defineInRange("claimsArchmage", 10, 1, 100);
+        CLAIMS_LEADER = builder
+                .comment("Max personal claims for Leader rank")
+                .defineInRange("claimsLeader", 10, 1, 100);
+        builder.pop(); // rankClaims
+        builder.pop(); // claims
+
+        builder.comment("Outpost / Raid Settings").push("outposts");
+        OUTPOST_HEALTH = builder
+                .comment("Health points for outpost blocks")
+                .defineInRange("outpostHealth", 100, 10, 1000);
+        OUTPOST_DAMAGE_PER_HIT = builder
+                .comment("Damage dealt per enemy attack on an outpost")
+                .defineInRange("outpostDamagePerHit", 5, 1, 100);
+        OUTPOST_HIT_COOLDOWN_SECONDS = builder
+                .comment("Cooldown between attacks on an outpost per player (seconds)")
+                .defineInRange("outpostHitCooldownSeconds", 3, 1, 60);
+        OUTPOST_RECAPTURE_COOLDOWN_MINUTES = builder
+                .comment("Cooldown before a captured outpost can be raided again (minutes)")
+                .defineInRange("outpostRecaptureCooldownMinutes", 30, 0, 1440);
+        RAID_WINDOW_ENABLED = builder
+                .comment("Enable raid windows (outposts can only be attacked during certain hours)")
+                .define("raidWindowEnabled", false);
+        RAID_WINDOW_START_HOUR = builder
+                .comment("Start hour for raid window (24-hour format)")
+                .defineInRange("raidWindowStartHour", 18, 0, 23);
+        RAID_WINDOW_END_HOUR = builder
+                .comment("End hour for raid window (24-hour format)")
+                .defineInRange("raidWindowEndHour", 22, 0, 24);
         builder.pop();
 
         builder.comment("Faction Settings").push("factions");
-        MAX_FACTION_NAME_LENGTH = builder
-                .comment("Maximum length of a faction name")
-                .defineInRange("maxFactionNameLength", 24, 3, 48);
         MAX_FACTION_MEMBERS = builder
                 .comment("Maximum number of members in a single faction")
-                .defineInRange("maxFactionMembers", 50, 2, 200);
+                .defineInRange("maxFactionMembers", 200, 2, 1000);
+        builder.pop();
+
+        builder.comment("War Status, Buffs & Contested Zones").push("war");
+        BUFF_RECALCULATION_INTERVAL_TICKS = builder
+                .comment("Ticks between war status recalculations (72000 = 1 hour)")
+                .defineInRange("buffRecalculationIntervalTicks", 72000, 1200, 1728000);
+        BUFF_APPLICATION_INTERVAL_TICKS = builder
+                .comment("Ticks between buff applications (600 = 30 seconds)")
+                .defineInRange("buffApplicationIntervalTicks", 600, 100, 72000);
+        KILL_SCORE_WEIGHT = builder
+                .comment("Score weight per faction kill in war calculation")
+                .defineInRange("killScoreWeight", 1, 0, 100);
+        OUTPOST_SCORE_WEIGHT = builder
+                .comment("Score weight per controlled outpost in war calculation")
+                .defineInRange("outpostScoreWeight", 10, 0, 1000);
+        WINNING_MARGIN = builder
+                .comment("Score margin needed to be considered 'winning' and receive buffs")
+                .defineInRange("winningMargin", 50, 0, 10000);
+        CONTESTED_ZONE_KILL_MULTIPLIER = builder
+                .comment("Arcane Power multiplier for kills inside contested zones")
+                .defineInRange("contestedZoneKillMultiplier", 2, 1, 10);
+        BUFF_SPEED_ENABLED = builder
+                .comment("Enable Speed I buff for winning faction members")
+                .define("buffSpeedEnabled", true);
+        BUFF_XP_BONUS_PERCENT = builder
+                .comment("XP bonus percentage for winning faction members")
+                .defineInRange("buffXpBonusPercent", 10, 0, 100);
+        builder.pop();
+
+        builder.comment("Arcane Power Progression Settings").push("progression");
+        ARCANE_POWER_PER_MINUTE = builder
+                .comment("Arcane Power points awarded per minute of online playtime")
+                .defineInRange("arcanePowerPerMinute", 1, 1, 100);
+        ARCANE_POWER_PER_KILL = builder
+                .comment("Arcane Power points awarded per enemy faction kill")
+                .defineInRange("arcanePowerPerKill", 50, 1, 1000);
+        ACOLYTE_THRESHOLD = builder
+                .comment("Arcane Power required to auto-rank to Acolyte (default ~16 hours playtime)")
+                .defineInRange("acolyteThreshold", 1000L, 1L, 1000000L);
+        WARLOCK_THRESHOLD = builder
+                .comment("Arcane Power required to auto-rank to Warlock (default ~83 hours or mix with kills)")
+                .defineInRange("warlockThreshold", 5000L, 1L, 1000000L);
         builder.pop();
 
         SPEC = builder.build();

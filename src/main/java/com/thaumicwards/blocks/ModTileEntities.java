@@ -18,4 +18,8 @@ public class ModTileEntities {
     public static final RegistryObject<TileEntityType<GuildNexusTileEntity>> GUILD_NEXUS_TE =
             TILE_ENTITIES.register("guild_nexus",
                     () -> TileEntityType.Builder.of(GuildNexusTileEntity::new, ModBlocks.GUILD_NEXUS.get()).build(null));
+
+    public static final RegistryObject<TileEntityType<OutpostTileEntity>> OUTPOST_TE =
+            TILE_ENTITIES.register("outpost",
+                    () -> TileEntityType.Builder.of(OutpostTileEntity::new, ModBlocks.OUTPOST.get()).build(null));
 }

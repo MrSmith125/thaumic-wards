@@ -2,6 +2,10 @@ package com.thaumicwards.claims;
 
 import com.thaumicwards.config.ServerConfig;
 import com.thaumicwards.core.ThaumicWards;
+import com.thaumicwards.factions.ContestedZoneManager;
+import com.thaumicwards.factions.Faction;
+import com.thaumicwards.factions.FactionManager;
+import com.thaumicwards.factions.FactionRank;
 import net.minecraft.util.math.ChunkPos;
 import net.minecraft.world.server.ServerWorld;
 
@@ -28,9 +32,14 @@ public class ClaimManager {
             return ClaimResult.ALREADY_CLAIMED;
         }
 
-        // Check max claims for personal
+        // Block claims inside contested zones
+        if (ContestedZoneManager.isInContestedZone(pos)) {
+            return ClaimResult.FAILED;
+        }
+
+        // Check max claims for personal — scaled by faction rank
         if (type == ClaimData.ClaimType.PERSONAL) {
-            int maxClaims = ServerConfig.MAX_PERSONAL_CLAIMS.get();
+            int maxClaims = getMaxPersonalClaims(playerUUID);
             long currentClaims = getPlayerPersonalClaims(playerUUID).size();
             if (currentClaims >= maxClaims) {
                 return ClaimResult.MAX_CLAIMS_REACHED;
@@ -102,8 +111,8 @@ public class ClaimManager {
             return true;
         }
 
-        // For guild claims, check faction membership
-        if (claim.isGuild() && claim.getFactionId() != null) {
+        // For guild and outpost claims, check faction membership
+        if ((claim.isGuild() || claim.isOutpost()) && claim.getFactionId() != null) {
             return com.thaumicwards.factions.FactionManager
                     .canPlayerInteractInFactionClaim(claim.getFactionId(), playerUUID);
         }
@@ -126,6 +135,29 @@ public class ClaimManager {
 
     public static Map<Long, ClaimData> getAllClaims() {
         return claims;
+    }
+
+    /**
+     * Returns the max personal claims for a player based on their faction rank.
+     * Players not in a faction get 1 claim (Initiate-level).
+     */
+    public static int getMaxPersonalClaims(UUID playerUUID) {
+        Faction faction = FactionManager.getPlayerFaction(playerUUID);
+        if (faction == null) {
+            return ServerConfig.CLAIMS_INITIATE.get(); // Default for non-faction players
+        }
+
+        FactionRank rank = faction.getRank(playerUUID);
+        if (rank == null) return ServerConfig.CLAIMS_INITIATE.get();
+
+        switch (rank) {
+            case LEADER:   return ServerConfig.CLAIMS_LEADER.get();
+            case ARCHMAGE: return ServerConfig.CLAIMS_ARCHMAGE.get();
+            case WARLOCK:  return ServerConfig.CLAIMS_WARLOCK.get();
+            case ACOLYTE:  return ServerConfig.CLAIMS_ACOLYTE.get();
+            case INITIATE:
+            default:       return ServerConfig.CLAIMS_INITIATE.get();
+        }
     }
 
     private static void markDirty() {

@@ -26,6 +26,14 @@ public class FactionSavedData extends WorldSavedData {
         for (int i = 0; i < factionList.size(); i++) {
             CompoundNBT factionNbt = factionList.getCompound(i);
             try {
+                // Check if this is a new-format faction (has stringId)
+                if (!factionNbt.contains("stringId")) {
+                    // Old format faction — skip it (migration: discard old arbitrary factions)
+                    String oldName = factionNbt.getString("name");
+                    ThaumicWards.LOGGER.warn("Skipping old-format faction '{}' during migration.", oldName);
+                    continue;
+                }
+
                 Faction faction = Faction.deserializeNBT(factionNbt);
                 FactionManager.loadFaction(faction);
             } catch (Exception e) {

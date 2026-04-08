@@ -6,7 +6,11 @@ import com.thaumicwards.claims.ClaimManager;
 import com.thaumicwards.claims.ClaimProtectionHandler;
 import com.thaumicwards.commands.ModCommands;
 import com.thaumicwards.core.ThaumicWards;
+import com.thaumicwards.factions.ContestedZoneManager;
+import com.thaumicwards.factions.FactionKillTracker;
 import com.thaumicwards.factions.FactionManager;
+import com.thaumicwards.factions.FactionWarStatus;
+import com.thaumicwards.factions.ProgressionManager;
 import com.thaumicwards.performance.ChunkLoadHandler;
 import com.thaumicwards.performance.EntityTickHandler;
 import com.thaumicwards.performance.TickRateManager;
@@ -37,13 +41,18 @@ public class ModEventHandler {
             MinecraftForge.EVENT_BUS.register(ServerTickHandler.class);
             MinecraftForge.EVENT_BUS.register(BorderEnforcementHandler.class);
             MinecraftForge.EVENT_BUS.register(ClaimProtectionHandler.class);
+            MinecraftForge.EVENT_BUS.register(FactionPvPHandler.class);
             handlersRegistered = true;
         }
 
-        // Load saved data
+        // Load saved data — order matters: factions first, then progression
         BorderSavedData.get(event.getServer().overworld());
         ClaimManager.init(event.getServer().overworld());
         FactionManager.init(event.getServer().overworld());
+        ProgressionManager.init(event.getServer().overworld());
+        FactionKillTracker.init(event.getServer().overworld());
+        ContestedZoneManager.init(event.getServer().overworld());
+        FactionWarStatus.recalculate();
     }
 
     @SubscribeEvent
@@ -51,6 +60,10 @@ public class ModEventHandler {
         ThaumicWards.LOGGER.info("Thaumic Wards server stopping - saving data...");
         TickRateManager.reset();
         ClaimManager.reset();
+        FactionWarStatus.reset();
+        ContestedZoneManager.reset();
+        FactionKillTracker.reset();
+        ProgressionManager.reset();
         FactionManager.reset();
     }
 }

@@ -60,7 +60,7 @@ public class GuildNexusBlock extends Block {
 
             if (!FactionPermissions.canPlaceNexus(factionId, player.getUUID())) {
                 player.displayClientMessage(new StringTextComponent(
-                        "Only Masters and the Archon can place a Guild Nexus.").withStyle(TextFormatting.RED), false);
+                        "Only Archmages and Leaders can place a Guild Nexus.").withStyle(TextFormatting.RED), false);
                 world.removeBlock(pos, false);
                 return;
             }

@@ -12,10 +12,12 @@ public class ClaimBoundaryPacket {
 
     private final List<ChunkPos> claimedChunks;
     private final List<Boolean> isGuild;
+    private final List<String> factionIds; // "mystics", "crimsons", or "" for personal claims
 
-    public ClaimBoundaryPacket(List<ChunkPos> claimedChunks, List<Boolean> isGuild) {
+    public ClaimBoundaryPacket(List<ChunkPos> claimedChunks, List<Boolean> isGuild, List<String> factionIds) {
         this.claimedChunks = claimedChunks;
         this.isGuild = isGuild;
+        this.factionIds = factionIds;
     }
 
     public static void encode(ClaimBoundaryPacket packet, PacketBuffer buf) {
@@ -24,6 +26,7 @@ public class ClaimBoundaryPacket {
             buf.writeInt(packet.claimedChunks.get(i).x);
             buf.writeInt(packet.claimedChunks.get(i).z);
             buf.writeBoolean(packet.isGuild.get(i));
+            buf.writeUtf(packet.factionIds.get(i));
         }
     }
 
@@ -31,16 +34,18 @@ public class ClaimBoundaryPacket {
         int size = buf.readInt();
         List<ChunkPos> chunks = new ArrayList<>();
         List<Boolean> guild = new ArrayList<>();
+        List<String> factionIds = new ArrayList<>();
         for (int i = 0; i < size; i++) {
             chunks.add(new ChunkPos(buf.readInt(), buf.readInt()));
             guild.add(buf.readBoolean());
+            factionIds.add(buf.readUtf(32767));
         }
-        return new ClaimBoundaryPacket(chunks, guild);
+        return new ClaimBoundaryPacket(chunks, guild, factionIds);
     }
 
     public static void handle(ClaimBoundaryPacket packet, Supplier<NetworkEvent.Context> ctx) {
         ctx.get().enqueueWork(() -> {
-            ClientPacketHandler.handleClaimBoundary(packet.claimedChunks, packet.isGuild);
+            ClientPacketHandler.handleClaimBoundary(packet.claimedChunks, packet.isGuild, packet.factionIds);
         });
         ctx.get().setPacketHandled(true);
     }

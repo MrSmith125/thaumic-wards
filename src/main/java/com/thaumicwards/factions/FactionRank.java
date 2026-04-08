@@ -4,54 +4,85 @@ import net.minecraft.util.text.TextFormatting;
 
 public enum FactionRank {
 
-    APPRENTICE(0, "Apprentice", TextFormatting.GRAY),
-    JOURNEYMAN(1, "Journeyman", TextFormatting.GREEN),
-    ADEPT(2, "Adept", TextFormatting.AQUA),
-    MASTER(3, "Master", TextFormatting.GOLD),
-    ARCHON(4, "Archon", TextFormatting.LIGHT_PURPLE);
+    INITIATE(0, "Initiate", TextFormatting.GRAY, 1),
+    ACOLYTE(1, "Acolyte", TextFormatting.GREEN, 3),
+    WARLOCK(2, "Warlock", TextFormatting.AQUA, 6),
+    ARCHMAGE(3, "Archmage", TextFormatting.GOLD, 10),
+    LEADER(4, "Leader", TextFormatting.LIGHT_PURPLE, 10);
 
     private final int level;
     private final String displayName;
     private final TextFormatting color;
+    private final int maxPersonalClaims;
 
-    FactionRank(int level, String displayName, TextFormatting color) {
+    FactionRank(int level, String displayName, TextFormatting color, int maxPersonalClaims) {
         this.level = level;
         this.displayName = displayName;
         this.color = color;
+        this.maxPersonalClaims = maxPersonalClaims;
     }
 
     public int getLevel() { return level; }
     public String getDisplayName() { return displayName; }
     public TextFormatting getColor() { return color; }
+    public int getMaxPersonalClaims() { return maxPersonalClaims; }
 
-    public boolean canInvite() { return level >= ADEPT.level; }
-    public boolean canKick() { return level >= MASTER.level; }
-    public boolean canClaim() { return level >= JOURNEYMAN.level; }
-    public boolean canExpandGuild() { return level >= MASTER.level; }
-    public boolean canPromote() { return level >= ARCHON.level; }
-    public boolean canDemote() { return level >= ARCHON.level; }
-    public boolean canDisband() { return level >= ARCHON.level; }
-    public boolean canPlaceNexus() { return level >= MASTER.level; }
+    // Permission checks — Leader-only for management actions
+    public boolean canKick() { return this == LEADER; }
+    public boolean canPromote() { return this == LEADER; }
+    public boolean canDemote() { return this == LEADER; }
+    public boolean canExpandGuild() { return this == LEADER; }
+    public boolean canPlaceNexus() { return level >= ARCHMAGE.level; }
+    public boolean canClaim() { return level >= INITIATE.level; } // Everyone in a faction can claim
 
     public boolean isAtLeast(FactionRank other) {
         return this.level >= other.level;
     }
 
-    public static FactionRank fromString(String name) {
-        try {
-            return valueOf(name.toUpperCase());
-        } catch (IllegalArgumentException e) {
-            return null;
-        }
+    /**
+     * Returns the next auto-earnable rank (caps at WARLOCK).
+     * ARCHMAGE requires leader promotion, LEADER requires OP assignment.
+     */
+    public FactionRank nextAutoRank() {
+        if (this.level >= WARLOCK.level) return this; // Can't auto-promote past Warlock
+        return values()[ordinal() + 1];
     }
 
-    public FactionRank nextRank() {
-        if (this == ARCHON) return ARCHON;
+    /**
+     * Returns the next rank for manual promotion by a Leader.
+     * Leaders can promote up to ARCHMAGE only.
+     */
+    public FactionRank nextManualRank() {
+        if (this == ARCHMAGE || this == LEADER) return this;
         return values()[ordinal() + 1];
     }
 
     public FactionRank previousRank() {
-        if (this == APPRENTICE) return APPRENTICE;
+        if (this == INITIATE) return INITIATE;
+        if (this == LEADER) return LEADER; // Leaders can only be removed by OP, not demoted
         return values()[ordinal() - 1];
+    }
+
+    /**
+     * Parses a rank from string with migration support for old rank names.
+     */
+    public static FactionRank fromString(String name) {
+        if (name == null) return null;
+        String upper = name.toUpperCase();
+
+        // Migration from old rank names
+        switch (upper) {
+            case "APPRENTICE": return INITIATE;
+            case "JOURNEYMAN": return ACOLYTE;
+            case "ADEPT": return WARLOCK;
+            case "MASTER": return ARCHMAGE;
+            case "ARCHON": return LEADER;
+        }
+
+        try {
+            return valueOf(upper);
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
     }
 }

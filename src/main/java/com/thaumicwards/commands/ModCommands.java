@@ -19,31 +19,38 @@ public class ModCommands {
         BorderCommand.register(dispatcher);
         ClaimCommand.register(dispatcher);
         FactionCommand.register(dispatcher);
+        ScoreCommand.register(dispatcher);
+        WarCommand.register(dispatcher);
     }
 
     private static int showHelp(CommandContext<CommandSource> context) {
         CommandSource source = context.getSource();
         source.sendSuccess(new StringTextComponent("=== Thaumic Wards ===").withStyle(TextFormatting.DARK_PURPLE, TextFormatting.BOLD), false);
-        source.sendSuccess(new StringTextComponent("Magical protection and faction system").withStyle(TextFormatting.LIGHT_PURPLE), false);
+        source.sendSuccess(new StringTextComponent("Mystics vs Crimsons — Choose your allegiance!").withStyle(TextFormatting.LIGHT_PURPLE), false);
         source.sendSuccess(new StringTextComponent(""), false);
 
-        source.sendSuccess(new StringTextComponent("--- Server Admin (OP) ---").withStyle(TextFormatting.YELLOW), false);
-        source.sendSuccess(new StringTextComponent("/thaumicwards pregen <radius>").withStyle(TextFormatting.GOLD).append(new StringTextComponent(" - Pre-generate chunks").withStyle(TextFormatting.GRAY)), false);
-        source.sendSuccess(new StringTextComponent("/thaumicwards pregen stop").withStyle(TextFormatting.GOLD).append(new StringTextComponent(" - Stop pre-generation").withStyle(TextFormatting.GRAY)), false);
-        source.sendSuccess(new StringTextComponent("/thaumicwards border set <radius>").withStyle(TextFormatting.GOLD).append(new StringTextComponent(" - Set magic barrier").withStyle(TextFormatting.GRAY)), false);
-        source.sendSuccess(new StringTextComponent("/thaumicwards border remove").withStyle(TextFormatting.GOLD).append(new StringTextComponent(" - Remove barrier").withStyle(TextFormatting.GRAY)), false);
+        source.sendSuccess(new StringTextComponent("--- Faction ---").withStyle(TextFormatting.YELLOW), false);
+        source.sendSuccess(new StringTextComponent("/thaumicwards join").withStyle(TextFormatting.GOLD).append(new StringTextComponent(" - Join a faction (auto-assigned)").withStyle(TextFormatting.GRAY)), false);
+        source.sendSuccess(new StringTextComponent("/thaumicwards faction leave").withStyle(TextFormatting.GOLD).append(new StringTextComponent(" - Leave your faction").withStyle(TextFormatting.GRAY)), false);
+        source.sendSuccess(new StringTextComponent("/thaumicwards faction info/list").withStyle(TextFormatting.GOLD).append(new StringTextComponent(" - Faction information").withStyle(TextFormatting.GRAY)), false);
+        source.sendSuccess(new StringTextComponent("/thaumicwards faction promote/demote/kick").withStyle(TextFormatting.GOLD).append(new StringTextComponent(" - Leader management").withStyle(TextFormatting.GRAY)), false);
+        source.sendSuccess(new StringTextComponent("/thaumicwards faction claim/unclaim").withStyle(TextFormatting.GOLD).append(new StringTextComponent(" - Faction territory (Leader)").withStyle(TextFormatting.GRAY)), false);
+
+        source.sendSuccess(new StringTextComponent("--- Rivalry ---").withStyle(TextFormatting.YELLOW), false);
+        source.sendSuccess(new StringTextComponent("/thaumicwards score").withStyle(TextFormatting.GOLD).append(new StringTextComponent(" - War scoreboard").withStyle(TextFormatting.GRAY)), false);
+        source.sendSuccess(new StringTextComponent("/thaumicwards stats").withStyle(TextFormatting.GOLD).append(new StringTextComponent(" - Your personal stats").withStyle(TextFormatting.GRAY)), false);
+        source.sendSuccess(new StringTextComponent("/thaumicwards warscore").withStyle(TextFormatting.GOLD).append(new StringTextComponent(" - War status & buffs").withStyle(TextFormatting.GRAY)), false);
 
         source.sendSuccess(new StringTextComponent("--- Ward Spells ---").withStyle(TextFormatting.YELLOW), false);
-        source.sendSuccess(new StringTextComponent("/thaumicwards claim").withStyle(TextFormatting.GOLD).append(new StringTextComponent(" - Ward current chunk").withStyle(TextFormatting.GRAY)), false);
+        source.sendSuccess(new StringTextComponent("/thaumicwards claim").withStyle(TextFormatting.GOLD).append(new StringTextComponent(" - Ward current chunk (personal)").withStyle(TextFormatting.GRAY)), false);
         source.sendSuccess(new StringTextComponent("/thaumicwards unclaim").withStyle(TextFormatting.GOLD).append(new StringTextComponent(" - Release warded chunk").withStyle(TextFormatting.GRAY)), false);
         source.sendSuccess(new StringTextComponent("/thaumicwards claims").withStyle(TextFormatting.GOLD).append(new StringTextComponent(" - List your territories").withStyle(TextFormatting.GRAY)), false);
 
-        source.sendSuccess(new StringTextComponent("--- Guild System ---").withStyle(TextFormatting.YELLOW), false);
-        source.sendSuccess(new StringTextComponent("/thaumicwards faction create <name>").withStyle(TextFormatting.GOLD).append(new StringTextComponent(" - Found a guild").withStyle(TextFormatting.GRAY)), false);
-        source.sendSuccess(new StringTextComponent("/thaumicwards faction invite/accept/leave").withStyle(TextFormatting.GOLD).append(new StringTextComponent(" - Membership").withStyle(TextFormatting.GRAY)), false);
-        source.sendSuccess(new StringTextComponent("/thaumicwards faction promote/demote/kick").withStyle(TextFormatting.GOLD).append(new StringTextComponent(" - Management").withStyle(TextFormatting.GRAY)), false);
-        source.sendSuccess(new StringTextComponent("/thaumicwards faction info/list").withStyle(TextFormatting.GOLD).append(new StringTextComponent(" - Information").withStyle(TextFormatting.GRAY)), false);
-        source.sendSuccess(new StringTextComponent("/thaumicwards faction claim/unclaim").withStyle(TextFormatting.GOLD).append(new StringTextComponent(" - Guild territory").withStyle(TextFormatting.GRAY)), false);
+        source.sendSuccess(new StringTextComponent("--- Server Admin (OP) ---").withStyle(TextFormatting.YELLOW), false);
+        source.sendSuccess(new StringTextComponent("/thaumicwards faction setleader/removeleader <player>").withStyle(TextFormatting.GOLD).append(new StringTextComponent(" - Manage leaders").withStyle(TextFormatting.GRAY)), false);
+        source.sendSuccess(new StringTextComponent("/thaumicwards pregen <radius> / pregen stop").withStyle(TextFormatting.GOLD).append(new StringTextComponent(" - Chunk pre-generation").withStyle(TextFormatting.GRAY)), false);
+        source.sendSuccess(new StringTextComponent("/thaumicwards border set <radius> / border remove").withStyle(TextFormatting.GOLD).append(new StringTextComponent(" - Magic barrier").withStyle(TextFormatting.GRAY)), false);
+        source.sendSuccess(new StringTextComponent("/thaumicwards contested add/remove/list").withStyle(TextFormatting.GOLD).append(new StringTextComponent(" - Contested zones").withStyle(TextFormatting.GRAY)), false);
         return 1;
     }
 }
