@@ -104,8 +104,8 @@ public class ClaimManager {
 
         // For guild claims, check faction membership
         if (claim.isGuild() && claim.getFactionId() != null) {
-            // This will be integrated with FactionManager in Phase 6
-            return false; // For now, non-owners can't interact
+            return com.thaumicwards.factions.FactionManager
+                    .canPlayerInteractInFactionClaim(claim.getFactionId(), playerUUID);
         }
 
         return false;

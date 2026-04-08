@@ -6,6 +6,7 @@ import com.thaumicwards.claims.ClaimManager;
 import com.thaumicwards.claims.ClaimProtectionHandler;
 import com.thaumicwards.commands.ModCommands;
 import com.thaumicwards.core.ThaumicWards;
+import com.thaumicwards.factions.FactionManager;
 import com.thaumicwards.performance.ChunkLoadHandler;
 import com.thaumicwards.performance.EntityTickHandler;
 import com.thaumicwards.performance.TickRateManager;
@@ -37,6 +38,7 @@ public class ModEventHandler {
         // Load saved data
         BorderSavedData.get(event.getServer().overworld());
         ClaimManager.init(event.getServer().overworld());
+        FactionManager.init(event.getServer().overworld());
     }
 
     @SubscribeEvent
@@ -44,5 +46,6 @@ public class ModEventHandler {
         ThaumicWards.LOGGER.info("Thaumic Wards server stopping - saving data...");
         TickRateManager.reset();
         ClaimManager.reset();
+        FactionManager.reset();
     }
 }

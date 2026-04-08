@@ -1,0 +1,5 @@
+{
+    "variants": {
+        "": { "model": "thaumic_wards:block/guild_nexus" }
+    }
+}

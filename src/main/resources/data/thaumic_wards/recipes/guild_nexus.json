@@ -1,0 +1,17 @@
+{
+    "type": "minecraft:crafting_shaped",
+    "pattern": [
+        "DED",
+        "ENE",
+        "DED"
+    ],
+    "key": {
+        "D": { "item": "minecraft:diamond" },
+        "E": { "item": "minecraft:ender_pearl" },
+        "N": { "item": "minecraft:nether_star" }
+    },
+    "result": {
+        "item": "thaumic_wards:guild_nexus",
+        "count": 1
+    }
+}

@@ -17,6 +17,10 @@ public class ModItems {
                     .stacksTo(1)
                     .tab(ItemGroup.TAB_TOOLS)));
 
-    // Faction Sigil will be added in Phase 6
-    // Block items will be added when blocks are created
+    public static final RegistryObject<Item> FACTION_SIGIL = ITEMS.register("faction_sigil",
+            () -> new FactionSigilItem(new Item.Properties()
+                    .stacksTo(1)
+                    .tab(ItemGroup.TAB_TOOLS)));
+
+    // Block items are registered in ModBlocks
 }

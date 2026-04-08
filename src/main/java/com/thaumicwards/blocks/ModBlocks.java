@@ -18,9 +18,13 @@ public class ModBlocks {
     public static final RegistryObject<Block> WARD_STONE = BLOCKS.register("ward_stone",
             WardStoneBlock::new);
 
-    // Guild Nexus will be added in Phase 6
+    public static final RegistryObject<Block> GUILD_NEXUS = BLOCKS.register("guild_nexus",
+            GuildNexusBlock::new);
 
     // Register block items
     public static final RegistryObject<Item> WARD_STONE_ITEM = ModItems.ITEMS.register("ward_stone",
             () -> new BlockItem(WARD_STONE.get(), new Item.Properties().tab(ItemGroup.TAB_BUILDING_BLOCKS)));
+
+    public static final RegistryObject<Item> GUILD_NEXUS_ITEM = ModItems.ITEMS.register("guild_nexus",
+            () -> new BlockItem(GUILD_NEXUS.get(), new Item.Properties().tab(ItemGroup.TAB_BUILDING_BLOCKS)));
 }

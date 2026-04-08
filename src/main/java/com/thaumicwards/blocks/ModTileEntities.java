@@ -15,5 +15,7 @@ public class ModTileEntities {
             TILE_ENTITIES.register("ward_stone",
                     () -> TileEntityType.Builder.of(WardStoneTileEntity::new, ModBlocks.WARD_STONE.get()).build(null));
 
-    // Guild Nexus TE will be added in Phase 6
+    public static final RegistryObject<TileEntityType<GuildNexusTileEntity>> GUILD_NEXUS_TE =
+            TILE_ENTITIES.register("guild_nexus",
+                    () -> TileEntityType.Builder.of(GuildNexusTileEntity::new, ModBlocks.GUILD_NEXUS.get()).build(null));
 }
