@@ -2,6 +2,8 @@ package com.thaumicwards.events;
 
 import com.thaumicwards.border.BorderEnforcementHandler;
 import com.thaumicwards.border.BorderSavedData;
+import com.thaumicwards.claims.ClaimManager;
+import com.thaumicwards.claims.ClaimProtectionHandler;
 import com.thaumicwards.commands.ModCommands;
 import com.thaumicwards.core.ThaumicWards;
 import com.thaumicwards.performance.ChunkLoadHandler;
@@ -30,13 +32,17 @@ public class ModEventHandler {
         MinecraftForge.EVENT_BUS.register(ServerTickHandler.class);
         // Register border enforcement
         MinecraftForge.EVENT_BUS.register(BorderEnforcementHandler.class);
-        // Load border data
+        // Register claim protection
+        MinecraftForge.EVENT_BUS.register(ClaimProtectionHandler.class);
+        // Load saved data
         BorderSavedData.get(event.getServer().overworld());
+        ClaimManager.init(event.getServer().overworld());
     }
 
     @SubscribeEvent
     public static void onServerStopping(FMLServerStoppingEvent event) {
         ThaumicWards.LOGGER.info("Thaumic Wards server stopping - saving data...");
         TickRateManager.reset();
+        ClaimManager.reset();
     }
 }

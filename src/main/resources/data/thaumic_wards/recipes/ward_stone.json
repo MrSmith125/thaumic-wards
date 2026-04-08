@@ -1,0 +1,17 @@
+{
+    "type": "minecraft:crafting_shaped",
+    "pattern": [
+        " E ",
+        "OSO",
+        "OOO"
+    ],
+    "key": {
+        "E": { "item": "minecraft:ender_pearl" },
+        "S": { "item": "minecraft:nether_star" },
+        "O": { "item": "minecraft:obsidian" }
+    },
+    "result": {
+        "item": "thaumic_wards:ward_stone",
+        "count": 1
+    }
+}

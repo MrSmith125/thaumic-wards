@@ -1,13 +1,25 @@
 package com.thaumicwards.events;
 
+import com.thaumicwards.claims.ClaimData;
+import com.thaumicwards.claims.ClaimManager;
+import com.thaumicwards.network.ClaimBoundaryPacket;
+import com.thaumicwards.network.ModNetwork;
 import com.thaumicwards.performance.ChunkLoadHandler;
 import com.thaumicwards.performance.TickRateManager;
 import com.thaumicwards.pregen.PregenManager;
+import net.minecraft.entity.player.ServerPlayerEntity;
+import net.minecraft.util.math.ChunkPos;
 import net.minecraft.world.server.ServerWorld;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.network.PacketDistributor;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class ServerTickHandler {
+
+    private static int claimParticleCounter = 0;
 
     @SubscribeEvent
     public static void onServerTick(TickEvent.WorldTickEvent event) {
@@ -29,5 +41,31 @@ public class ServerTickHandler {
 
         // Run chunk pre-generation if active
         PregenManager.tick(world);
+
+        // Send claim boundary particles to nearby players every 40 ticks
+        claimParticleCounter++;
+        if (claimParticleCounter >= 40) {
+            claimParticleCounter = 0;
+            sendClaimParticles(world);
+        }
+    }
+
+    private static void sendClaimParticles(ServerWorld world) {
+        for (ServerPlayerEntity player : world.players()) {
+            ChunkPos playerChunk = new ChunkPos(player.blockPosition());
+            List<ClaimData> nearbyClaims = ClaimManager.getClaimsNear(playerChunk, 4);
+
+            if (!nearbyClaims.isEmpty()) {
+                List<ChunkPos> chunks = new ArrayList<>();
+                List<Boolean> isGuild = new ArrayList<>();
+                for (ClaimData claim : nearbyClaims) {
+                    chunks.add(claim.getChunkPos());
+                    isGuild.add(claim.isGuild());
+                }
+                ModNetwork.CHANNEL.send(
+                        PacketDistributor.PLAYER.with(() -> player),
+                        new ClaimBoundaryPacket(chunks, isGuild));
+            }
+        }
     }
 }

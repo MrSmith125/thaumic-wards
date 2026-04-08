@@ -1,8 +1,11 @@
 package com.thaumicwards.core;
 
+import com.thaumicwards.blocks.ModBlocks;
+import com.thaumicwards.blocks.ModTileEntities;
 import com.thaumicwards.config.ClientConfig;
 import com.thaumicwards.config.ServerConfig;
 import com.thaumicwards.events.ModEventHandler;
+import com.thaumicwards.items.ModItems;
 import com.thaumicwards.network.ModNetwork;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.fml.ModLoadingContext;
@@ -10,6 +13,7 @@ import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.config.ModConfig;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
+import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -21,8 +25,14 @@ public class ThaumicWards {
     public static final Logger LOGGER = LogManager.getLogger();
 
     public ThaumicWards() {
-        FMLJavaModLoadingContext.get().getModEventBus().addListener(this::commonSetup);
-        FMLJavaModLoadingContext.get().getModEventBus().addListener(this::clientSetup);
+        IEventBus modBus = FMLJavaModLoadingContext.get().getModEventBus();
+        modBus.addListener(this::commonSetup);
+        modBus.addListener(this::clientSetup);
+
+        // Register items, blocks, and tile entities
+        ModItems.ITEMS.register(modBus);
+        ModBlocks.BLOCKS.register(modBus);
+        ModTileEntities.TILE_ENTITIES.register(modBus);
 
         ModLoadingContext.get().registerConfig(ModConfig.Type.SERVER, ServerConfig.SPEC);
         ModLoadingContext.get().registerConfig(ModConfig.Type.CLIENT, ClientConfig.SPEC);

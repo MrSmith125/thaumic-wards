@@ -17,7 +17,7 @@ public class ModCommands {
         );
         PregenCommand.register(dispatcher);
         BorderCommand.register(dispatcher);
-        // ClaimCommand.register(dispatcher);
+        ClaimCommand.register(dispatcher);
         // FactionCommand.register(dispatcher);
     }
 
