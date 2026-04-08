@@ -27,7 +27,7 @@ public class GuildNexusBlock extends Block {
         super(Properties.of(Material.STONE)
                 .strength(75.0f, 2400.0f) // Extremely hard to break
                 .lightLevel(state -> 12) // Bright magical glow
-                .sound(SoundType.AMETHYST)
+                .sound(SoundType.STONE)
                 .noOcclusion());
     }
 

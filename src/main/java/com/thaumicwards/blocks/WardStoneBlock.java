@@ -26,7 +26,7 @@ public class WardStoneBlock extends Block {
         super(Properties.of(Material.STONE)
                 .strength(50.0f, 1200.0f) // Very hard to break
                 .lightLevel(state -> 7) // Magical glow
-                .sound(SoundType.AMETHYST)
+                .sound(SoundType.STONE)
                 .noOcclusion());
     }
 

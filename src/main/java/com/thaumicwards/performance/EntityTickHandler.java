@@ -2,6 +2,7 @@ package com.thaumicwards.performance;
 
 import com.thaumicwards.config.ServerConfig;
 import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.MobEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraftforge.event.entity.living.LivingEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -32,11 +33,10 @@ public class EntityTickHandler {
         if (TickRateManager.isDistantChunk(chunkX, chunkZ)) {
             int interval = ServerConfig.DISTANT_CHUNK_TICK_INTERVAL.get();
             if (entity.tickCount % interval != 0) {
-                // Freeze entity AI and movement for this tick instead of canceling
-                // LivingUpdateEvent may not be cancellable, so we use NoAI-style skip
+                // Freeze entity AI and movement for this tick
                 entity.setDeltaMovement(0, entity.getDeltaMovement().y, 0);
-                if (entity.getNavigation() != null) {
-                    entity.getNavigation().stop();
+                if (entity instanceof MobEntity) {
+                    ((MobEntity) entity).getNavigation().stop();
                 }
             }
         }
