@@ -11,7 +11,8 @@ import java.util.Set;
 
 public class TickRateManager {
 
-    private static final Set<Long> distantChunks = new HashSet<>();
+    // We track which chunks are near players. Any chunk NOT in this set is "distant".
+    private static final Set<Long> nearPlayerChunks = new HashSet<>();
     private static int recalcCounter = 0;
 
     public static void tick(ServerWorld world) {
@@ -23,7 +24,7 @@ public class TickRateManager {
     }
 
     private static void recalculate(ServerWorld world) {
-        distantChunks.clear();
+        nearPlayerChunks.clear();
         int threshold = ServerConfig.DISTANT_CHUNK_THRESHOLD.get();
         List<ServerPlayerEntity> players = world.players();
 
@@ -31,39 +32,32 @@ public class TickRateManager {
             return;
         }
 
-        // Get all loaded chunk positions and check distance from players
-        world.getChunkSource().chunkMap.getChunks().forEach(chunkHolder -> {
-            ChunkPos pos = chunkHolder.getPos();
-            boolean isDistant = true;
-
-            for (ServerPlayerEntity player : players) {
-                int playerChunkX = ((int) player.getX()) >> 4;
-                int playerChunkZ = ((int) player.getZ()) >> 4;
-                int dx = pos.x - playerChunkX;
-                int dz = pos.z - playerChunkZ;
-
-                if (dx * dx + dz * dz <= threshold * threshold) {
-                    isDistant = false;
-                    break;
+        for (ServerPlayerEntity player : players) {
+            int playerChunkX = ((int) player.getX()) >> 4;
+            int playerChunkZ = ((int) player.getZ()) >> 4;
+            for (int dx = -threshold; dx <= threshold; dx++) {
+                for (int dz = -threshold; dz <= threshold; dz++) {
+                    if (dx * dx + dz * dz <= threshold * threshold) {
+                        nearPlayerChunks.add(ChunkPos.asLong(playerChunkX + dx, playerChunkZ + dz));
+                    }
                 }
             }
-
-            if (isDistant) {
-                distantChunks.add(pos.toLong());
-            }
-        });
+        }
     }
 
+    /**
+     * Returns true if the given chunk is NOT near any player.
+     */
     public static boolean isDistantChunk(ChunkPos pos) {
-        return distantChunks.contains(pos.toLong());
+        return !nearPlayerChunks.contains(pos.toLong());
     }
 
     public static boolean isDistantChunk(int chunkX, int chunkZ) {
-        return distantChunks.contains(ChunkPos.asLong(chunkX, chunkZ));
+        return !nearPlayerChunks.contains(ChunkPos.asLong(chunkX, chunkZ));
     }
 
     public static void reset() {
-        distantChunks.clear();
+        nearPlayerChunks.clear();
         recalcCounter = 0;
     }
 }
