@@ -50,10 +50,13 @@ public class AutoOptimizer {
             totalChanges += optimizeQuark(configDir);
         }
 
-        // Mekanism
+        // Mekanism (includes ore dedup)
         if (isLoaded("mekanism")) {
             totalChanges += optimizeMekanism(configDir);
         }
+
+        // Ore deduplication - disable duplicate ores across mods
+        totalChanges += deduplicateOres(configDir, serverConfigDir);
 
         // Applied Energistics 2
         if (isLoaded("appliedenergistics2")) {
@@ -546,6 +549,58 @@ public class AutoOptimizer {
         } catch (IOException e) {
             ThaumicWards.LOGGER.warn("Failed to optimize Apotheosis: {}", e.getMessage());
         }
+        return count;
+    }
+
+    private static int deduplicateOres(Path configDir, Path serverConfigDir) {
+        int count = 0;
+        // Only run if All The Ores is present (the unified source)
+        if (!isLoaded("alltheores")) return 0;
+
+        // Disable Thermal duplicate ores
+        Path thermal = serverConfigDir.resolve("thermal-server.toml");
+        if (Files.exists(thermal)) {
+            Map<String, String> changes = new LinkedHashMap<>();
+            changes.put("Copper = true", "Copper = false");
+            changes.put("Tin = true", "Tin = false");
+            changes.put("Lead = true", "Lead = false");
+            changes.put("Silver = true", "Silver = false");
+            changes.put("Nickel = true", "Nickel = false");
+            count += applyTomlChanges(thermal, changes, "Thermal Ores (dedup)");
+        }
+
+        // Disable Mystical World duplicate ores
+        Path mw = configDir.resolve("mysticalworld-common.toml");
+        if (Files.exists(mw)) {
+            try {
+                String content = new String(Files.readAllBytes(mw), StandardCharsets.UTF_8);
+                String original = content;
+                // Set oreChances to 0 for duplicates
+                // Copper, Silver, Lead, Tin sections
+                content = content.replaceAll("(\\[oregen\\.Copper_oregen\\][^\\[]*?)oreChances = \\d+", "$1oreChances = 0");
+                content = content.replaceAll("(\\[oregen\\.Silver_oregen\\][^\\[]*?)oreChances = \\d+", "$1oreChances = 0");
+                content = content.replaceAll("(\\[oregen\\.Lead_oregen\\][^\\[]*?)oreChances = \\d+", "$1oreChances = 0");
+                content = content.replaceAll("(\\[oregen\\.Tin_oregen\\][^\\[]*?)oreChances = \\d+", "$1oreChances = 0");
+                if (!content.equals(original)) {
+                    Files.write(mw, content.getBytes(StandardCharsets.UTF_8));
+                    log("Mystical World Ores", "Disabled duplicate copper/silver/lead/tin ore gen");
+                    count++;
+                }
+            } catch (IOException e) {
+                ThaumicWards.LOGGER.warn("Failed to dedup Mystical World ores: {}", e.getMessage());
+            }
+        }
+
+        // Disable Ice and Fire duplicate ores
+        Path iaf = configDir.resolve("iceandfire-common.toml");
+        if (Files.exists(iaf)) {
+            Map<String, String> iafChanges = new LinkedHashMap<>();
+            iafChanges.put("\"Generate Copper Ore\" = true", "\"Generate Copper Ore\" = false");
+            iafChanges.put("\"Generate Silver Ore\" = true", "\"Generate Silver Ore\" = false");
+            count += applyTomlChanges(iaf, iafChanges, "Ice and Fire Ores (dedup)");
+        }
+
+        log("Ore Deduplication", "Consolidated ores to All The Ores as single source (~30 fewer ore passes/chunk)");
         return count;
     }
 
