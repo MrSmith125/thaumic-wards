@@ -13,7 +13,6 @@ import com.thaumicwards.performance.ChunkLoadHandler;
 import com.thaumicwards.performance.EntityTickHandler;
 import com.thaumicwards.performance.PerformanceProfiler;
 import com.thaumicwards.performance.TickRateManager;
-import com.thaumicwards.restart.RestartScheduler;
 import com.thaumicwards.scoreboard.FactionScoreboard;
 import net.minecraft.entity.player.ServerPlayerEntity;
 import net.minecraft.util.text.StringTextComponent;
@@ -53,7 +52,6 @@ public class ModEventHandler {
             MinecraftForge.EVENT_BUS.register(com.thaumicwards.performance.RedstoneThrottler.class);
             MinecraftForge.EVENT_BUS.register(com.thaumicwards.performance.EntityCleanup.class);
             MinecraftForge.EVENT_BUS.register(PerformanceProfiler.class);
-            MinecraftForge.EVENT_BUS.register(RestartScheduler.class);
             handlersRegistered = true;
         }
 
@@ -77,8 +75,6 @@ public class ModEventHandler {
             PerformanceProfiler.getInstance().setEnabled(true);
         }
 
-        // Initialize auto-restart scheduler
-        RestartScheduler.init();
     }
 
     @SubscribeEvent
@@ -117,7 +113,6 @@ public class ModEventHandler {
     public static void onServerStopping(FMLServerStoppingEvent event) {
         ThaumicWards.LOGGER.info("Thaumic Wards server stopping - saving data...");
         PerformanceProfiler.getInstance().setEnabled(false);
-        RestartScheduler.reset();
         com.thaumicwards.performance.EntityCleanup.reset();
         com.thaumicwards.performance.AdaptiveThrottler.reset();
         com.thaumicwards.performance.RedstoneThrottler.reset();
