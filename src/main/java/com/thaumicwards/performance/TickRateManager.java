@@ -5,14 +5,16 @@ import net.minecraft.entity.player.ServerPlayerEntity;
 import net.minecraft.util.math.ChunkPos;
 import net.minecraft.world.server.ServerWorld;
 
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class TickRateManager {
 
-    // We track which chunks are near players. Any chunk NOT in this set is "distant".
-    private static final Set<Long> nearPlayerChunks = new HashSet<>();
+    // Thread-safe set: written during recalculate(), read from entity tick events
+    private static volatile Set<Long> nearPlayerChunks = ConcurrentHashMap.newKeySet();
     private static int recalcCounter = 0;
 
     public static void tick(ServerWorld world) {
@@ -24,7 +26,8 @@ public class TickRateManager {
     }
 
     private static void recalculate(ServerWorld world) {
-        nearPlayerChunks.clear();
+        // Build new set then swap (avoids clearing while readers are iterating)
+        Set<Long> newSet = ConcurrentHashMap.newKeySet();
         int threshold = ServerConfig.DISTANT_CHUNK_THRESHOLD.get();
         List<ServerPlayerEntity> players = world.players();
 
@@ -38,11 +41,12 @@ public class TickRateManager {
             for (int dx = -threshold; dx <= threshold; dx++) {
                 for (int dz = -threshold; dz <= threshold; dz++) {
                     if (dx * dx + dz * dz <= threshold * threshold) {
-                        nearPlayerChunks.add(ChunkPos.asLong(playerChunkX + dx, playerChunkZ + dz));
+                        newSet.add(ChunkPos.asLong(playerChunkX + dx, playerChunkZ + dz));
                     }
                 }
             }
         }
+        nearPlayerChunks = newSet; // Atomic swap
     }
 
     /**

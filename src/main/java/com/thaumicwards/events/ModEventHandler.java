@@ -8,8 +8,10 @@ import com.thaumicwards.commands.ModCommands;
 import com.thaumicwards.config.ServerConfig;
 import com.thaumicwards.core.ThaumicWards;
 import com.thaumicwards.factions.*;
+import com.thaumicwards.performance.AutoOptimizer;
 import com.thaumicwards.performance.ChunkLoadHandler;
 import com.thaumicwards.performance.EntityTickHandler;
+import com.thaumicwards.performance.PerformanceProfiler;
 import com.thaumicwards.performance.TickRateManager;
 import com.thaumicwards.scoreboard.FactionScoreboard;
 import net.minecraft.entity.player.ServerPlayerEntity;
@@ -47,6 +49,7 @@ public class ModEventHandler {
             MinecraftForge.EVENT_BUS.register(ClaimProtectionHandler.class);
             MinecraftForge.EVENT_BUS.register(FactionPvPHandler.class);
             MinecraftForge.EVENT_BUS.register(ChatHandler.class);
+            MinecraftForge.EVENT_BUS.register(PerformanceProfiler.class);
             handlersRegistered = true;
         }
 
@@ -59,6 +62,16 @@ public class ModEventHandler {
         ContestedZoneManager.init(event.getServer().overworld());
         FactionWarStatus.recalculate();
         FactionScoreboard.init(event.getServer());
+
+        // Run AutoOptimizer on first startup
+        if (ServerConfig.AUTO_OPTIMIZE_ENABLED.get()) {
+            AutoOptimizer.runOptimizations(event.getServer());
+        }
+
+        // Auto-start profiler if configured
+        if (ServerConfig.PROFILER_AUTO_START.get()) {
+            PerformanceProfiler.getInstance().setEnabled(true);
+        }
     }
 
     @SubscribeEvent
@@ -96,6 +109,7 @@ public class ModEventHandler {
     @SubscribeEvent
     public static void onServerStopping(FMLServerStoppingEvent event) {
         ThaumicWards.LOGGER.info("Thaumic Wards server stopping - saving data...");
+        PerformanceProfiler.getInstance().setEnabled(false);
         FactionScoreboard.reset();
         TickRateManager.reset();
         ClaimManager.reset();

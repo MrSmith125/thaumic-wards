@@ -62,6 +62,14 @@ public class ServerConfig {
     public static final ForgeConfigSpec.BooleanValue CHAT_FACTION_PREFIX_ENABLED;
     public static final ForgeConfigSpec.BooleanValue AUTO_JOIN_ENABLED;
 
+    // AutoOptimizer
+    public static final ForgeConfigSpec.BooleanValue AUTO_OPTIMIZE_ENABLED;
+
+    // Profiler
+    public static final ForgeConfigSpec.BooleanValue PROFILER_AUTO_START;
+    public static final ForgeConfigSpec.IntValue PROFILER_AUTO_LOG_INTERVAL_TICKS;
+    public static final ForgeConfigSpec.IntValue PROFILER_SNAPSHOT_INTERVAL_TICKS;
+
     static {
         ForgeConfigSpec.Builder builder = new ForgeConfigSpec.Builder();
 
@@ -204,6 +212,24 @@ public class ServerConfig {
         AUTO_JOIN_ENABLED = builder
                 .comment("Automatically assign players to a faction on first login")
                 .define("autoJoinEnabled", true);
+        builder.pop();
+
+        builder.comment("AutoOptimizer - automatically tunes other mods' configs on startup").push("autoOptimizer");
+        AUTO_OPTIMIZE_ENABLED = builder
+                .comment("Enable automatic optimization of other mods' configs on server start")
+                .define("autoOptimizeEnabled", true);
+        builder.pop();
+
+        builder.comment("Performance Profiler Settings").push("profiler");
+        PROFILER_AUTO_START = builder
+                .comment("Automatically start the performance profiler on server start")
+                .define("profilerAutoStart", false);
+        PROFILER_AUTO_LOG_INTERVAL_TICKS = builder
+                .comment("Ticks between automatic profiler log dumps (6000 = 5 minutes)")
+                .defineInRange("profilerAutoLogIntervalTicks", 6000, 1200, 72000);
+        PROFILER_SNAPSHOT_INTERVAL_TICKS = builder
+                .comment("Ticks between memory/packet snapshots (100 = 5 seconds)")
+                .defineInRange("profilerSnapshotIntervalTicks", 100, 20, 1200);
         builder.pop();
 
         SPEC = builder.build();

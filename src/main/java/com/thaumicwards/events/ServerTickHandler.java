@@ -10,6 +10,7 @@ import com.thaumicwards.factions.ProgressionManager;
 import com.thaumicwards.network.ClaimBoundaryPacket;
 import com.thaumicwards.network.ModNetwork;
 import com.thaumicwards.performance.ChunkLoadHandler;
+import com.thaumicwards.performance.PerformanceProfiler;
 import com.thaumicwards.performance.TPSMonitor;
 import com.thaumicwards.performance.TickRateManager;
 import com.thaumicwards.scoreboard.FactionScoreboard;
@@ -26,10 +27,11 @@ import java.util.List;
 
 public class ServerTickHandler {
 
-    private static int claimParticleCounter = 0;
+    // Stagger counters so periodic tasks don't all fire on the same tick
+    private static int claimParticleCounter = 20;
     private static int progressionCounter = 0;
-    private static int warStatusCounter = 0;
-    private static int buffCounter = 0;
+    private static int warStatusCounter = 300;
+    private static int buffCounter = 150;
     private static int scoreboardCounter = 0;
 
     @SubscribeEvent
@@ -50,6 +52,13 @@ public class ServerTickHandler {
 
         // Track TPS
         TPSMonitor.recordTick();
+
+        // Performance profiler: clear entity counters and record player count
+        PerformanceProfiler profiler = PerformanceProfiler.getInstance();
+        if (profiler.isEnabled()) {
+            profiler.clearEntityCounters();
+            profiler.recordPlayerCount(world.players().size());
+        }
 
         // Update tick rate manager for distant chunk tracking
         TickRateManager.tick(world);

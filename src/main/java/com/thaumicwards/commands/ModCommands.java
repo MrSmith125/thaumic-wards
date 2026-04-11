@@ -21,6 +21,7 @@ public class ModCommands {
         ScoreCommand.register(dispatcher);
         WarCommand.register(dispatcher);
         TPSCommand.register(dispatcher);
+        LagMapCommand.register(dispatcher);
     }
 
     private static int showHelp(CommandContext<CommandSource> context) {
@@ -49,6 +50,7 @@ public class ModCommands {
         source.sendSuccess(new StringTextComponent("--- Server Admin (OP) ---").withStyle(TextFormatting.YELLOW), false);
         source.sendSuccess(new StringTextComponent("/thaumicwards faction setleader/removeleader <player>").withStyle(TextFormatting.GOLD).append(new StringTextComponent(" - Manage leaders").withStyle(TextFormatting.GRAY)), false);
         source.sendSuccess(new StringTextComponent("/thaumicwards tps").withStyle(TextFormatting.GOLD).append(new StringTextComponent(" - Server performance").withStyle(TextFormatting.GRAY)), false);
+        source.sendSuccess(new StringTextComponent("/thaumicwards lagmap [start|stop|entities|tiles|memory|network|players|dimensions|dump]").withStyle(TextFormatting.GOLD).append(new StringTextComponent(" - Performance profiler").withStyle(TextFormatting.GRAY)), false);
         source.sendSuccess(new StringTextComponent("/thaumicwards border set <radius> / border remove").withStyle(TextFormatting.GOLD).append(new StringTextComponent(" - Magic barrier").withStyle(TextFormatting.GRAY)), false);
         source.sendSuccess(new StringTextComponent("/thaumicwards contested add/remove/list").withStyle(TextFormatting.GOLD).append(new StringTextComponent(" - Contested zones").withStyle(TextFormatting.GRAY)), false);
         return 1;
