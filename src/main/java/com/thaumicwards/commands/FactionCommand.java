@@ -65,7 +65,7 @@ public class FactionCommand {
             if (FactionManager.isPlayerInFaction(player.getUUID())) {
                 Faction current = FactionManager.getPlayerFaction(player.getUUID());
                 context.getSource().sendFailure(new StringTextComponent(
-                        "You already belong to " + current.getName() + ". Leave first with /thaumicwards faction leave."));
+                        "You are already a member of " + current.getName() + ". Factions are auto-assigned on first login."));
                 return 0;
             }
 

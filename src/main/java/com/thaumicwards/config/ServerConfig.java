@@ -13,10 +13,6 @@ public class ServerConfig {
     public static final ForgeConfigSpec.IntValue DISTANT_CHUNK_TICK_INTERVAL;
     public static final ForgeConfigSpec.IntValue DISTANT_CHUNK_THRESHOLD;
 
-    // Pregen
-    public static final ForgeConfigSpec.IntValue CHUNKS_PER_TICK;
-    public static final ForgeConfigSpec.IntValue MAX_PREGEN_RADIUS;
-
     // Border
     public static final ForgeConfigSpec.IntValue BORDER_WARNING_DISTANCE;
     public static final ForgeConfigSpec.DoubleValue BORDER_DAMAGE;
@@ -61,6 +57,11 @@ public class ServerConfig {
     public static final ForgeConfigSpec.LongValue ACOLYTE_THRESHOLD;
     public static final ForgeConfigSpec.LongValue WARLOCK_THRESHOLD;
 
+    // Gamification
+    public static final ForgeConfigSpec.IntValue SCOREBOARD_UPDATE_INTERVAL_TICKS;
+    public static final ForgeConfigSpec.BooleanValue CHAT_FACTION_PREFIX_ENABLED;
+    public static final ForgeConfigSpec.BooleanValue AUTO_JOIN_ENABLED;
+
     static {
         ForgeConfigSpec.Builder builder = new ForgeConfigSpec.Builder();
 
@@ -80,15 +81,6 @@ public class ServerConfig {
         DISTANT_CHUNK_THRESHOLD = builder
                 .comment("Chunk distance from nearest player to be considered 'distant'")
                 .defineInRange("distantChunkThreshold", 8, 1, 32);
-        builder.pop();
-
-        builder.comment("Chunk Pre-generation Settings").push("pregen");
-        CHUNKS_PER_TICK = builder
-                .comment("Number of chunks to generate per server tick during pre-generation")
-                .defineInRange("chunksPerTick", 2, 1, 20);
-        MAX_PREGEN_RADIUS = builder
-                .comment("Maximum allowed pre-generation radius in chunks")
-                .defineInRange("maxPregenRadius", 500, 1, 5000);
         builder.pop();
 
         builder.comment("World Border Settings").push("border");
@@ -200,6 +192,18 @@ public class ServerConfig {
         WARLOCK_THRESHOLD = builder
                 .comment("Arcane Power required to auto-rank to Warlock (default ~83 hours or mix with kills)")
                 .defineInRange("warlockThreshold", 5000L, 1L, 1000000L);
+        builder.pop();
+
+        builder.comment("Gamification Settings").push("gamification");
+        SCOREBOARD_UPDATE_INTERVAL_TICKS = builder
+                .comment("Ticks between sidebar scoreboard updates (600 = 30 seconds)")
+                .defineInRange("scoreboardUpdateIntervalTicks", 600, 100, 6000);
+        CHAT_FACTION_PREFIX_ENABLED = builder
+                .comment("Enable faction and rank prefixes in chat messages")
+                .define("chatFactionPrefixEnabled", true);
+        AUTO_JOIN_ENABLED = builder
+                .comment("Automatically assign players to a faction on first login")
+                .define("autoJoinEnabled", true);
         builder.pop();
 
         SPEC = builder.build();

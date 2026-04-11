@@ -7,7 +7,7 @@ import net.minecraftforge.fml.network.simple.SimpleChannel;
 
 public class ModNetwork {
 
-    private static final String PROTOCOL_VERSION = "1.0";
+    private static final String PROTOCOL_VERSION = "1.1";
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             new ResourceLocation(ThaumicWards.MOD_ID, "main"),
             () -> PROTOCOL_VERSION,
@@ -22,9 +22,6 @@ public class ModNetwork {
     }
 
     public static void init() {
-        CHANNEL.registerMessage(nextId(), PregenProgressPacket.class,
-                PregenProgressPacket::encode, PregenProgressPacket::decode, PregenProgressPacket::handle);
-
         CHANNEL.registerMessage(nextId(), BorderParticlePacket.class,
                 BorderParticlePacket::encode, BorderParticlePacket::decode, BorderParticlePacket::handle);
 

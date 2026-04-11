@@ -10,8 +10,9 @@ import com.thaumicwards.factions.ProgressionManager;
 import com.thaumicwards.network.ClaimBoundaryPacket;
 import com.thaumicwards.network.ModNetwork;
 import com.thaumicwards.performance.ChunkLoadHandler;
+import com.thaumicwards.performance.TPSMonitor;
 import com.thaumicwards.performance.TickRateManager;
-import com.thaumicwards.pregen.PregenManager;
+import com.thaumicwards.scoreboard.FactionScoreboard;
 import net.minecraft.entity.player.ServerPlayerEntity;
 import net.minecraft.util.math.ChunkPos;
 import net.minecraft.world.server.ServerWorld;
@@ -28,6 +29,7 @@ public class ServerTickHandler {
     private static int progressionCounter = 0;
     private static int warStatusCounter = 0;
     private static int buffCounter = 0;
+    private static int scoreboardCounter = 0;
 
     @SubscribeEvent
     public static void onServerTick(TickEvent.WorldTickEvent event) {
@@ -41,14 +43,14 @@ public class ServerTickHandler {
 
         ServerWorld world = (ServerWorld) event.world;
 
+        // Track TPS
+        TPSMonitor.recordTick();
+
         // Update tick rate manager for distant chunk tracking
         TickRateManager.tick(world);
 
         // Reset chunk load counter each tick
         ChunkLoadHandler.resetCounter();
-
-        // Run chunk pre-generation if active
-        PregenManager.tick(world);
 
         // Progression system — award playtime points every 1200 ticks (1 minute)
         progressionCounter++;
@@ -69,6 +71,13 @@ public class ServerTickHandler {
         if (buffCounter >= ServerConfig.BUFF_APPLICATION_INTERVAL_TICKS.get()) {
             buffCounter = 0;
             FactionBuffHandler.applyBuffs(world);
+        }
+
+        // Scoreboard update
+        scoreboardCounter++;
+        if (scoreboardCounter >= ServerConfig.SCOREBOARD_UPDATE_INTERVAL_TICKS.get()) {
+            scoreboardCounter = 0;
+            FactionScoreboard.updateSidebar(world.getServer());
         }
 
         // Send claim boundary particles to nearby players every 40 ticks

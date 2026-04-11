@@ -20,23 +20,6 @@ public class ClientPacketHandler {
 
     private static final Random rand = new Random();
 
-    public static void handlePregenProgress(int completedChunks, int totalChunks, boolean finished) {
-        Minecraft mc = Minecraft.getInstance();
-        if (mc.gui == null) return;
-
-        if (finished) {
-            mc.gui.setOverlayMessage(
-                    new StringTextComponent("Arcane survey complete! All terrain charted.")
-                            .withStyle(TextFormatting.GREEN), false);
-        } else {
-            int percent = totalChunks > 0 ? (completedChunks * 100 / totalChunks) : 0;
-            mc.gui.setOverlayMessage(
-                    new StringTextComponent(String.format("Arcane surveying... %d%% (%d/%d chunks)",
-                            percent, completedChunks, totalChunks))
-                            .withStyle(TextFormatting.LIGHT_PURPLE), false);
-        }
-    }
-
     public static void handleBorderParticles(BlockPos center, int radius) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null || mc.player == null) return;
