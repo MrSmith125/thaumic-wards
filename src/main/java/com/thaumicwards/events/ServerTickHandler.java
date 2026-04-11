@@ -70,6 +70,9 @@ public class ServerTickHandler {
         // Reset redstone throttle counters
         com.thaumicwards.performance.RedstoneThrottler.resetCounts();
 
+        // Tick stress test simulation (if active)
+        com.thaumicwards.commands.StressTestCommand.tickSimulation(world);
+
         // Adaptive TPS throttler - every 200 ticks
         adaptiveCounter++;
         if (adaptiveCounter >= 200) {

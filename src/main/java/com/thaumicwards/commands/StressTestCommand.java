@@ -13,7 +13,11 @@ import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.MobEntity;
 import net.minecraft.entity.SpawnReason;
+import net.minecraft.entity.item.ExperienceOrbEntity;
+import net.minecraft.entity.item.ItemEntity;
 import net.minecraft.entity.player.ServerPlayerEntity;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.ChunkPos;
@@ -31,6 +35,161 @@ public class StressTestCommand {
 
     private static final CopyOnWriteArrayList<UUID> spawnedEntityIds = new CopyOnWriteArrayList<>();
     private static final CopyOnWriteArrayList<BlockPos> placedBlocks = new CopyOnWriteArrayList<>();
+
+    // === Active simulation state ===
+    private static volatile boolean simulationActive = false;
+    private static final List<SimulatedPlayer> simulatedPlayers = new ArrayList<>();
+    private static int simTickCounter = 0;
+    private static CommandSource simSource = null;
+    private static long simStartTime = 0;
+    private static double simStartTps = 0;
+    private static long simStartMem = 0;
+
+    /**
+     * Call from ServerTickHandler every tick (overworld only).
+     * Drives the active player simulation — moves bots, loads chunks, spawns mobs.
+     */
+    public static void tickSimulation(ServerWorld world) {
+        if (!simulationActive || simulatedPlayers.isEmpty()) return;
+        simTickCounter++;
+
+        // Move each simulated player every 20 ticks (1 second) — like a real player walking
+        if (simTickCounter % 20 == 0) {
+            Random rng = new Random(simTickCounter);
+            int chunksLoaded = 0;
+            int mobsSpawned = 0;
+
+            for (SimulatedPlayer sim : simulatedPlayers) {
+                // Grinders stay in place, everyone else walks
+                if (!sim.isGrinder) {
+                    // Move in their current direction (8-16 blocks per second, like sprinting)
+                    int moveSpeed = 12 + rng.nextInt(5);
+                    sim.x += (int)(Math.cos(sim.angle) * moveSpeed);
+                    sim.z += (int)(Math.sin(sim.angle) * moveSpeed);
+
+                    // Occasionally change direction (simulates exploring, not walking straight)
+                    if (rng.nextInt(5) == 0) {
+                        sim.angle += (rng.nextDouble() - 0.5) * Math.PI;
+                    }
+                }
+
+                // Load chunks around new position (simulates view-distance 5)
+                ChunkPos cp = new ChunkPos(new BlockPos(sim.x, 64, sim.z));
+                for (int dx = -5; dx <= 5; dx++) {
+                    for (int dz = -5; dz <= 5; dz++) {
+                        if (dx * dx + dz * dz <= 25) {
+                            world.getChunk(cp.x + dx, cp.z + dz);
+                            chunksLoaded++;
+                        }
+                    }
+                }
+
+                sim.moveCount++;
+
+                // Spawn mobs near this bot every 5 movements (simulates natural spawning)
+                if (sim.moveCount % 5 == 0) {
+                    EntityType<?>[] types = { EntityType.ZOMBIE, EntityType.SKELETON, EntityType.SHEEP, EntityType.COW };
+                    for (int m = 0; m < 3; m++) {
+                        int mx = sim.x + rng.nextInt(32) - 16;
+                        int mz = sim.z + rng.nextInt(32) - 16;
+                        int my = world.getHeight(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, mx, mz);
+                        Entity ent = types[rng.nextInt(types.length)].create(world);
+                        if (ent != null) {
+                            ent.moveTo(mx + 0.5, my, mz + 0.5, rng.nextFloat() * 360, 0);
+                            if (ent instanceof MobEntity) ((MobEntity) ent).finalizeSpawn(world,
+                                    world.getCurrentDifficultyAt(new BlockPos(mx, my, mz)), SpawnReason.NATURAL, null, null);
+                            ent.getPersistentData().putBoolean("tw_stress", true);
+                            if (world.addFreshEntity(ent)) { spawnedEntityIds.add(ent.getUUID()); mobsSpawned++; }
+                        }
+                    }
+                }
+
+                // Drop items on the ground every 3 movements (simulates mining/crafting/breaking)
+                if (sim.moveCount % 3 == 0) {
+                    ItemStack[] drops = { new ItemStack(Items.COBBLESTONE, 4 + rng.nextInt(12)),
+                            new ItemStack(Items.DIRT, 2 + rng.nextInt(8)),
+                            new ItemStack(Items.OAK_LOG, 1 + rng.nextInt(4)),
+                            new ItemStack(Items.IRON_ORE, 1 + rng.nextInt(3)),
+                            new ItemStack(Items.ROTTEN_FLESH, 1 + rng.nextInt(5)) };
+                    for (int d = 0; d < 2 + rng.nextInt(3); d++) {
+                        int dx = sim.x + rng.nextInt(16) - 8;
+                        int dz = sim.z + rng.nextInt(16) - 8;
+                        int dy = world.getHeight(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, dx, dz);
+                        ItemEntity item = new ItemEntity(world, dx + 0.5, dy + 1, dz + 0.5,
+                                drops[rng.nextInt(drops.length)].copy());
+                        item.getPersistentData().putBoolean("tw_stress", true);
+                        if (world.addFreshEntity(item)) spawnedEntityIds.add(item.getUUID());
+                    }
+                }
+
+                // Mob grinder simulation for ~1 in 6 players: rapid mob kill + XP + loot drops
+                if (sim.isGrinder && sim.moveCount % 2 == 0) {
+                    int gx = sim.x;
+                    int gz = sim.z;
+                    int gy = world.getHeight(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, gx, gz);
+
+                    // Spawn and immediately kill mobs (simulates a grinder)
+                    for (int k = 0; k < 3; k++) {
+                        // Spawn loot drops as if mob died
+                        ItemStack[] loot = { new ItemStack(Items.ROTTEN_FLESH, 1 + rng.nextInt(3)),
+                                new ItemStack(Items.BONE, rng.nextInt(3)),
+                                new ItemStack(Items.ARROW, rng.nextInt(4)),
+                                new ItemStack(Items.GUNPOWDER, rng.nextInt(2)),
+                                new ItemStack(Items.STRING, rng.nextInt(3)) };
+                        for (int l = 0; l < 2; l++) {
+                            ItemEntity lootItem = new ItemEntity(world,
+                                    gx + rng.nextDouble() * 4 - 2, gy + 1, gz + rng.nextDouble() * 4 - 2,
+                                    loot[rng.nextInt(loot.length)].copy());
+                            lootItem.getPersistentData().putBoolean("tw_stress", true);
+                            if (world.addFreshEntity(lootItem)) spawnedEntityIds.add(lootItem.getUUID());
+                        }
+
+                        // Spawn XP orbs
+                        for (int xp = 0; xp < 2; xp++) {
+                            ExperienceOrbEntity orb = new ExperienceOrbEntity(world,
+                                    gx + rng.nextDouble() * 4 - 2, gy + 1, gz + rng.nextDouble() * 4 - 2,
+                                    3 + rng.nextInt(7));
+                            if (world.addFreshEntity(orb)) spawnedEntityIds.add(orb.getUUID());
+                        }
+                    }
+
+                    // Spawn replacement mobs for the grinder to "kill" next cycle
+                    EntityType<?>[] grinderMobs = { EntityType.ZOMBIE, EntityType.SKELETON, EntityType.SPIDER };
+                    for (int g = 0; g < 2; g++) {
+                        Entity gMob = grinderMobs[rng.nextInt(grinderMobs.length)].create(world);
+                        if (gMob != null) {
+                            gMob.moveTo(gx + rng.nextDouble() * 6 - 3, gy + 1, gz + rng.nextDouble() * 6 - 3,
+                                    rng.nextFloat() * 360, 0);
+                            gMob.getPersistentData().putBoolean("tw_stress", true);
+                            if (world.addFreshEntity(gMob)) { spawnedEntityIds.add(gMob.getUUID()); mobsSpawned++; }
+                        }
+                    }
+                }
+            }
+
+            // Periodic status every 30 seconds
+            if (simTickCounter % 600 == 0 && simSource != null) {
+                double tps = TPSMonitor.getCurrentTPS();
+                long mem = getMemMB();
+                int seconds = simTickCounter / 20;
+                simSource.sendSuccess(msg(String.format(
+                        "[Sim %ds] TPS: %.1f | Memory: %dMB | Entities: %d | Chunks loaded this tick: %d",
+                        seconds, tps, mem, spawnedEntityIds.size(), chunksLoaded),
+                        tps >= 18 ? TextFormatting.GREEN : tps >= 15 ? TextFormatting.YELLOW : TextFormatting.RED), false);
+            }
+        }
+    }
+
+    private static class SimulatedPlayer {
+        int x, z;
+        double angle;
+        int moveCount = 0;
+        boolean isGrinder = false; // ~1 in 6 players runs a mob grinder
+
+        SimulatedPlayer(int x, int z, double angle) {
+            this.x = x; this.z = z; this.angle = angle;
+        }
+    }
 
     public static void register(CommandDispatcher<CommandSource> dispatcher) {
         dispatcher.register(
@@ -455,6 +614,12 @@ public class StressTestCommand {
     private static int runSimulatePlayers(CommandContext<CommandSource> context) {
         int playerCount = IntegerArgumentType.getInteger(context, "players");
         CommandSource src = context.getSource();
+
+        if (simulationActive) {
+            src.sendFailure(msg("Simulation already running! Use /thaumicwards stresstest cleanup to stop.", TextFormatting.RED));
+            return 0;
+        }
+
         try {
             ServerPlayerEntity player = src.getPlayerOrException();
             ServerWorld world = player.getLevel();
@@ -463,200 +628,80 @@ public class StressTestCommand {
             double startTps = TPSMonitor.getCurrentTPS();
             long startMem = getMemMB();
 
-            src.sendSuccess(header("SIMULATE " + playerCount + " PLAYERS"), false);
-            src.sendSuccess(msg("Creating " + playerCount + " player hotspots spread across the world...", TextFormatting.AQUA), false);
+            src.sendSuccess(header("SIMULATE " + playerCount + " MOVING PLAYERS"), false);
+            src.sendSuccess(msg("Each simulated player will:", TextFormatting.AQUA), false);
+            src.sendSuccess(msg("  - Walk ~12 blocks/sec in random directions", TextFormatting.GRAY), false);
+            src.sendSuccess(msg("  - Load chunks in a 5-chunk radius as they move", TextFormatting.GRAY), false);
+            src.sendSuccess(msg("  - Spawn mobs every 5 seconds of movement", TextFormatting.GRAY), false);
+            src.sendSuccess(msg("  - Report status every 30 seconds", TextFormatting.GRAY), false);
+            src.sendSuccess(msg("Use /thaumicwards stresstest cleanup to stop.", TextFormatting.YELLOW), false);
+            src.sendSuccess(msg("", TextFormatting.WHITE), false);
             src.sendSuccess(stat("Starting TPS", String.format("%.1f", startTps)), false);
             src.sendSuccess(stat("Starting Memory", startMem + " MB"), false);
 
             BlockPos origin = player.blockPosition();
-            Random rng = new Random(12345); // deterministic seed for reproducibility
-            int totalChunksLoaded = 0;
-            int totalEntitiesSpawned = 0;
-            int hotspotSpacing = 200; // 200 blocks between each simulated player
+            Random rng = new Random(12345);
+            int hotspotSpacing = 200;
 
-            // Phase 1: Create hotspots and load chunks around each
-            src.sendSuccess(msg("", TextFormatting.WHITE), false);
-            src.sendSuccess(msg("[1/3] Loading chunks at " + playerCount + " locations (simulating view-distance 5)...", TextFormatting.GOLD), false);
-
-            List<BlockPos> hotspots = new ArrayList<>();
+            // Create simulated players spread in concentric rings
+            simulatedPlayers.clear();
             int spotsPerRing = 8;
             int ring = 0;
             int spotInRing = 0;
 
             for (int i = 0; i < playerCount; i++) {
-                // Spread players in concentric rings
                 double angle = 2 * Math.PI * spotInRing / Math.max(1, Math.min(spotsPerRing * (ring + 1), playerCount));
                 int dist = hotspotSpacing * (ring + 1);
                 int hx = origin.getX() + (int)(Math.cos(angle) * dist) + rng.nextInt(100) - 50;
                 int hz = origin.getZ() + (int)(Math.sin(angle) * dist) + rng.nextInt(100) - 50;
-                int hy = world.getHeight(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, hx, hz);
-                BlockPos hotspot = new BlockPos(hx, hy, hz);
-                hotspots.add(hotspot);
+                double walkAngle = rng.nextDouble() * 2 * Math.PI;
+                SimulatedPlayer sim = new SimulatedPlayer(hx, hz, walkAngle);
+                // ~1 in 6 players runs a mob grinder (stays in place, rapid kills + loot + XP)
+                if (i % 6 == 0) {
+                    sim.isGrinder = true;
+                    sim.angle = 0; // grinders don't move
+                }
+                simulatedPlayers.add(sim);
 
                 spotInRing++;
-                if (spotInRing >= spotsPerRing * (ring + 1)) {
-                    spotInRing = 0;
-                    ring++;
-                }
+                if (spotInRing >= spotsPerRing * (ring + 1)) { spotInRing = 0; ring++; }
+            }
 
-                // Load chunks in a 5-chunk radius around this hotspot (simulates view-distance 5)
-                ChunkPos cp = new ChunkPos(hotspot);
-                int viewDist = 5;
-                for (int dx = -viewDist; dx <= viewDist; dx++) {
-                    for (int dz = -viewDist; dz <= viewDist; dz++) {
-                        if (dx * dx + dz * dz <= viewDist * viewDist) {
+            // Initial chunk load for all starting positions
+            src.sendSuccess(msg("Loading initial chunks for all " + playerCount + " positions...", TextFormatting.GOLD), false);
+            int initialChunks = 0;
+            for (SimulatedPlayer sim : simulatedPlayers) {
+                ChunkPos cp = new ChunkPos(new BlockPos(sim.x, 64, sim.z));
+                for (int dx = -5; dx <= 5; dx++) {
+                    for (int dz = -5; dz <= 5; dz++) {
+                        if (dx * dx + dz * dz <= 25) {
                             world.getChunk(cp.x + dx, cp.z + dz);
-                            totalChunksLoaded++;
-                        }
-                    }
-                }
-
-                // Progress every 10 hotspots
-                if ((i + 1) % 10 == 0) {
-                    src.sendSuccess(msg(String.format("  ...%d/%d hotspots created (%d chunks loaded)",
-                            i + 1, playerCount, totalChunksLoaded), TextFormatting.GRAY), false);
-                }
-            }
-
-            src.sendSuccess(stat("  Hotspots created", String.valueOf(hotspots.size())), false);
-            src.sendSuccess(stat("  Chunks loaded", String.valueOf(totalChunksLoaded)), false);
-            src.sendSuccess(tpsReport(startTps, TPSMonitor.getCurrentTPS()), false);
-            src.sendSuccess(memReport(startMem, getMemMB()), false);
-
-            // Phase 2: Spawn mobs at each hotspot (simulating natural spawning)
-            src.sendSuccess(msg("", TextFormatting.WHITE), false);
-            src.sendSuccess(msg("[2/3] Spawning mobs at each hotspot (10-15 per location)...", TextFormatting.GOLD), false);
-            double preMobTps = TPSMonitor.getCurrentTPS();
-            long preMobMem = getMemMB();
-
-            EntityType<?>[] naturalMobs = {
-                EntityType.ZOMBIE, EntityType.SKELETON, EntityType.SPIDER, EntityType.CREEPER,
-                EntityType.COW, EntityType.SHEEP, EntityType.PIG, EntityType.CHICKEN,
-                EntityType.ENDERMAN, EntityType.WITCH
-            };
-
-            for (BlockPos hotspot : hotspots) {
-                int mobsPerSpot = 10 + rng.nextInt(6); // 10-15 mobs per hotspot
-                for (int m = 0; m < mobsPerSpot; m++) {
-                    EntityType<?> type = naturalMobs[rng.nextInt(naturalMobs.length)];
-                    int mx = hotspot.getX() + rng.nextInt(64) - 32;
-                    int mz = hotspot.getZ() + rng.nextInt(64) - 32;
-                    int my = world.getHeight(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, mx, mz);
-                    Entity ent = type.create(world);
-                    if (ent != null) {
-                        ent.moveTo(mx + 0.5, my, mz + 0.5, rng.nextFloat() * 360, 0);
-                        if (ent instanceof MobEntity) {
-                            ((MobEntity) ent).finalizeSpawn(world, world.getCurrentDifficultyAt(new BlockPos(mx, my, mz)),
-                                    SpawnReason.NATURAL, null, null);
-                        }
-                        ent.getPersistentData().putBoolean("tw_stress", true);
-                        if (world.addFreshEntity(ent)) {
-                            spawnedEntityIds.add(ent.getUUID());
-                            totalEntitiesSpawned++;
+                            initialChunks++;
                         }
                     }
                 }
             }
 
-            src.sendSuccess(stat("  Entities spawned", String.valueOf(totalEntitiesSpawned)), false);
-            src.sendSuccess(tpsReport(preMobTps, TPSMonitor.getCurrentTPS()), false);
-            src.sendSuccess(memReport(preMobMem, getMemMB()), false);
-
-            // Phase 3: Place some tile entities at random hotspots (simulating player bases)
-            src.sendSuccess(msg("", TextFormatting.WHITE), false);
-            src.sendSuccess(msg("[3/3] Placing tile entities at hotspots (simulating bases)...", TextFormatting.GOLD), false);
-            double preTileTps = TPSMonitor.getCurrentTPS();
-            int tilesPlaced = 0;
-
-            // Place 5-10 tile entities at each hotspot
-            for (BlockPos hotspot : hotspots) {
-                int tilesPerSpot = 5 + rng.nextInt(6);
-                for (int t = 0; t < tilesPerSpot; t++) {
-                    int tx = hotspot.getX() + rng.nextInt(20) - 10;
-                    int tz = hotspot.getZ() + rng.nextInt(20) - 10;
-                    int ty = world.getHeight(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, tx, tz);
-                    BlockPos pos = new BlockPos(tx, ty, tz);
-                    BlockPos below = pos.below();
-
-                    // Place support + tile entity
-                    if (!world.getBlockState(below).isAir(world, below) || true) {
-                        world.setBlock(pos, Blocks.STONE.defaultBlockState(), 2);
-                        placedBlocks.add(pos);
-                        BlockPos above = pos.above();
-                        world.setBlock(above, (t % 3 == 0 ? Blocks.CHEST : t % 3 == 1 ? Blocks.FURNACE : Blocks.HOPPER).defaultBlockState(), 2);
-                        placedBlocks.add(above);
-                        tilesPlaced++;
-                    }
-                }
-            }
-
-            src.sendSuccess(stat("  Tile entities placed", String.valueOf(tilesPlaced)), false);
-            src.sendSuccess(tpsReport(preTileTps, TPSMonitor.getCurrentTPS()), false);
-
-            // === Final Summary ===
-            double endTps = TPSMonitor.getCurrentTPS();
-            long endMem = getMemMB();
-            long maxMem = rt.maxMemory() / 1024 / 1024;
+            // Start the tick-driven simulation
+            simulationActive = true;
+            simTickCounter = 0;
+            simSource = src;
+            simStartTime = System.currentTimeMillis();
+            simStartTps = startTps;
+            simStartMem = startMem;
 
             src.sendSuccess(msg("", TextFormatting.WHITE), false);
-            src.sendSuccess(header(playerCount + "-PLAYER SIMULATION RESULTS"), false);
+            src.sendSuccess(header("SIMULATION ACTIVE"), false);
             src.sendSuccess(stat("Simulated players", String.valueOf(playerCount)), false);
-            src.sendSuccess(stat("Hotspot spacing", hotspotSpacing + " blocks apart"), false);
-            src.sendSuccess(stat("Chunks loaded", String.valueOf(totalChunksLoaded)), false);
-            src.sendSuccess(stat("Entities spawned", String.valueOf(totalEntitiesSpawned)), false);
-            src.sendSuccess(stat("Tile entities placed", String.valueOf(tilesPlaced)), false);
-
-            TextFormatting tpsColor = endTps >= 18 ? TextFormatting.GREEN : endTps >= 15 ? TextFormatting.YELLOW
-                    : endTps >= 10 ? TextFormatting.RED : TextFormatting.DARK_RED;
-            src.sendSuccess(new StringTextComponent("  TPS: ").withStyle(TextFormatting.GRAY)
-                    .append(new StringTextComponent(String.format("%.1f -> %.1f", startTps, endTps)).withStyle(tpsColor)), false);
-
-            int memPct = (int)(endMem * 100 / maxMem);
-            TextFormatting memColor = memPct < 60 ? TextFormatting.GREEN : memPct < 80 ? TextFormatting.YELLOW : TextFormatting.RED;
-            src.sendSuccess(new StringTextComponent("  Memory: ").withStyle(TextFormatting.GRAY)
-                    .append(new StringTextComponent(String.format("%dMB / %dMB (%d%%)", endMem, maxMem, memPct)).withStyle(memColor)), false);
-
-            // Estimated per-player cost
-            double tpsDrop = startTps - endTps;
-            double perPlayerTpsCost = playerCount > 0 ? tpsDrop / playerCount : 0;
-            long memPerPlayer = playerCount > 0 ? (endMem - startMem) / playerCount : 0;
-            src.sendSuccess(stat("Est. TPS cost/player", String.format("%.3f", perPlayerTpsCost)), false);
-            src.sendSuccess(stat("Est. memory/player", memPerPlayer + " MB"), false);
-
-            // Max player estimate
-            double availableTps = 20.0 - 5.0; // reserve 5 TPS for base server overhead
-            int maxPlayers = perPlayerTpsCost > 0 ? (int)(availableTps / perPlayerTpsCost) : 999;
-            TextFormatting maxColor = maxPlayers >= 60 ? TextFormatting.GREEN : maxPlayers >= 40 ? TextFormatting.YELLOW : TextFormatting.RED;
-            src.sendSuccess(new StringTextComponent("  Est. max players before TPS<15: ").withStyle(TextFormatting.GRAY)
-                    .append(new StringTextComponent(String.valueOf(Math.min(maxPlayers, 200))).withStyle(maxColor, TextFormatting.BOLD)), false);
-
-            // Verdict
-            String verdict;
-            TextFormatting verdictColor;
-            if (endTps >= 18 && memPct < 70) {
-                verdict = "EXCELLENT - Server handles " + playerCount + " simulated players easily";
-                verdictColor = TextFormatting.GREEN;
-            } else if (endTps >= 15) {
-                verdict = "GOOD - Playable but approaching limits";
-                verdictColor = TextFormatting.YELLOW;
-            } else if (endTps >= 10) {
-                verdict = "WARNING - TPS below 15, reduce view-distance or entity caps";
-                verdictColor = TextFormatting.RED;
-            } else {
-                verdict = "CRITICAL - Server cannot handle " + playerCount + " players at current settings";
-                verdictColor = TextFormatting.DARK_RED;
-            }
-            src.sendSuccess(new StringTextComponent("  Verdict: ").withStyle(TextFormatting.GRAY)
-                    .append(new StringTextComponent(verdict).withStyle(verdictColor, TextFormatting.BOLD)), false);
-
+            src.sendSuccess(stat("Initial chunks loaded", String.valueOf(initialChunks)), false);
+            src.sendSuccess(stat("Spacing", hotspotSpacing + " blocks apart"), false);
             src.sendSuccess(msg("", TextFormatting.WHITE), false);
-            src.sendSuccess(msg("Entities and tiles remain loaded to observe sustained TPS impact.", TextFormatting.GRAY), false);
-            src.sendSuccess(msg("Run /thaumicwards stresstest cleanup when done observing.", TextFormatting.GRAY), false);
-            src.sendSuccess(msg("Run /thaumicwards lagmap for detailed profiler data.", TextFormatting.GRAY), false);
+            src.sendSuccess(msg("Players are now WALKING through the world, loading new chunks every second.", TextFormatting.GREEN), false);
+            src.sendSuccess(msg("Status updates every 30 seconds. Watch TPS with /thaumicwards lagmap", TextFormatting.GRAY), false);
+            src.sendSuccess(msg("Run /thaumicwards stresstest cleanup to stop the simulation.", TextFormatting.YELLOW), false);
 
-            ThaumicWards.LOGGER.info("{}-player simulation: TPS {}->{}, Memory {}->{}MB, {} entities, {} tiles, {} chunks",
-                    playerCount, String.format("%.1f", startTps), String.format("%.1f", endTps),
-                    startMem, endMem, totalEntitiesSpawned, tilesPlaced, totalChunksLoaded);
+            ThaumicWards.LOGGER.info("Started {}-player movement simulation with {} initial chunks",
+                    playerCount, initialChunks);
 
         } catch (Exception e) {
             src.sendFailure(msg("Must be run by a player. Error: " + e.getMessage(), TextFormatting.RED));
@@ -668,6 +713,24 @@ public class StressTestCommand {
     private static int cleanup(CommandContext<CommandSource> context) {
         CommandSource src = context.getSource();
         ServerWorld world = src.getLevel();
+
+        // Stop active simulation
+        if (simulationActive) {
+            long elapsed = (System.currentTimeMillis() - simStartTime) / 1000;
+            double endTps = TPSMonitor.getCurrentTPS();
+            long endMem = getMemMB();
+            src.sendSuccess(header("SIMULATION ENDED"), false);
+            src.sendSuccess(stat("Duration", elapsed + " seconds"), false);
+            src.sendSuccess(stat("Simulated players", String.valueOf(simulatedPlayers.size())), false);
+            int grinderCount = (int) simulatedPlayers.stream().filter(s -> s.isGrinder).count();
+            src.sendSuccess(stat("Mob grinders", String.valueOf(grinderCount)), false);
+            src.sendSuccess(tpsReport(simStartTps, endTps), false);
+            src.sendSuccess(memReport(simStartMem, endMem), false);
+            simulationActive = false;
+            simulatedPlayers.clear();
+            simSource = null;
+        }
+
         int entities = 0, blocks = 0;
 
         for (UUID id : spawnedEntityIds) {
