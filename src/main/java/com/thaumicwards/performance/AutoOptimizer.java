@@ -168,6 +168,37 @@ public class AutoOptimizer {
             totalChanges += optimizeRFToolsUtility(serverConfigDir);
         }
 
+        // Torchmaster
+        if (isLoaded("torchmaster")) {
+            totalChanges += optimizeTorchmaster(configDir);
+        }
+
+        // SecurityCraft
+        if (isLoaded("securitycraft")) {
+            totalChanges += optimizeSecurityCraft(serverConfigDir);
+        }
+
+        // Sophisticated Backpacks
+        if (isLoaded("sophisticatedbackpacks")) {
+            totalChanges += optimizeSophisticatedBackpacks(configDir);
+        }
+
+        // Compact Machines
+        if (isLoaded("compactmachines")) {
+            totalChanges += optimizeCompactMachines(serverConfigDir);
+        }
+
+        // Forge server config
+        totalChanges += optimizeForgeServer(serverConfigDir);
+
+        // Forge fml.toml
+        totalChanges += optimizeFML(configDir);
+
+        // Waystones
+        if (isLoaded("waystones")) {
+            totalChanges += optimizeWaystones(configDir);
+        }
+
         // server.properties
         totalChanges += optimizeServerProperties();
 
@@ -647,6 +678,69 @@ public class AutoOptimizer {
         changes.put("showAllAnvilVariants = true", "showAllAnvilVariants = false");
         changes.put("showAllTableVariants = true", "showAllTableVariants = false");
         return applyTomlChanges(file, changes, "Tinkers' Construct");
+    }
+
+    private static int optimizeTorchmaster(Path configDir) {
+        Path file = configDir.resolve("torchmaster.toml");
+        Map<String, String> changes = new LinkedHashMap<>();
+        changes.put("megaTorchRadius = 64", "megaTorchRadius = 32");
+        changes.put("dreadLampRadius = 64", "dreadLampRadius = 32");
+        return applyTomlChanges(file, changes, "Torchmaster");
+    }
+
+    private static int optimizeSecurityCraft(Path serverConfigDir) {
+        Path file = serverConfigDir.resolve("securitycraft-server.toml");
+        Map<String, String> changes = new LinkedHashMap<>();
+        changes.put("laserBlockRange = 5", "laserBlockRange = 3");
+        changes.put("maxAlarmRange = 100", "maxAlarmRange = 32");
+        return applyTomlChanges(file, changes, "SecurityCraft");
+    }
+
+    private static int optimizeSophisticatedBackpacks(Path configDir) {
+        Path file = configDir.resolve("sophisticatedbackpacks-common.toml");
+        Map<String, String> changes = new LinkedHashMap<>();
+        changes.put("upgradesInContainedBackpacksAreFunctional = true", "upgradesInContainedBackpacksAreFunctional = false");
+        changes.put("upgradesUseInventoriesOfBackpacksInBackpack = true", "upgradesUseInventoriesOfBackpacksInBackpack = false");
+        return applyTomlChanges(file, changes, "Sophisticated Backpacks");
+    }
+
+    private static int optimizeCompactMachines(Path serverConfigDir) {
+        Path file = serverConfigDir.resolve("compactmachines-server.toml");
+        Map<String, String> changes = new LinkedHashMap<>();
+        changes.put("chunkloading = true", "chunkloading = false");
+        return applyTomlChanges(file, changes, "Compact Machines");
+    }
+
+    private static int optimizeForgeServer(Path serverConfigDir) {
+        Path file = serverConfigDir.resolve("forge-server.toml");
+        Map<String, String> changes = new LinkedHashMap<>();
+        changes.put("removeErroringEntities = false", "removeErroringEntities = true");
+        changes.put("removeErroringTileEntities = false", "removeErroringTileEntities = true");
+        changes.put("zombieBaseSummonChance = 0.1", "zombieBaseSummonChance = 0.0");
+        changes.put("logCascadingWorldGeneration = true", "logCascadingWorldGeneration = false");
+        changes.put("fixVanillaCascading = false", "fixVanillaCascading = true");
+        changes.put("dimensionUnloadQueueDelay = 0", "dimensionUnloadQueueDelay = 6000");
+        return applyTomlChanges(file, changes, "Forge Server");
+    }
+
+    private static int optimizeFML(Path configDir) {
+        Path file = configDir.resolve("fml.toml");
+        Map<String, String> changes = new LinkedHashMap<>();
+        changes.put("versionCheck = true", "versionCheck = false");
+        return applyTomlChanges(file, changes, "FML");
+    }
+
+    private static int optimizeWaystones(Path configDir) {
+        Path file = configDir.resolve("waystones-common.toml");
+        Map<String, String> changes = new LinkedHashMap<>();
+        changes.put("worldGenFrequency = 25", "worldGenFrequency = 50");
+        int count = applyTomlChanges(file, changes, "Waystones Common");
+
+        Path server = configDir.resolve("waystones-server.toml");
+        Map<String, String> srvChanges = new LinkedHashMap<>();
+        srvChanges.put("dimensionalWarp = \"ALLOW\"", "dimensionalWarp = \"GLOBAL_ONLY\"");
+        count += applyTomlChanges(server, srvChanges, "Waystones Server");
+        return count;
     }
 
     private static int optimizeServerProperties() {

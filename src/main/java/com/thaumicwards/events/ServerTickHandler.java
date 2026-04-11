@@ -66,6 +66,9 @@ public class ServerTickHandler {
         // Reset chunk load counter each tick
         ChunkLoadHandler.resetCounter();
 
+        // Reset redstone throttle counters
+        com.thaumicwards.performance.RedstoneThrottler.resetCounts();
+
         // Progression system — award playtime points every 1200 ticks (1 minute)
         progressionCounter++;
         if (progressionCounter >= 1200) {

@@ -62,6 +62,10 @@ public class ServerConfig {
     public static final ForgeConfigSpec.BooleanValue CHAT_FACTION_PREFIX_ENABLED;
     public static final ForgeConfigSpec.BooleanValue AUTO_JOIN_ENABLED;
 
+    // Redstone Throttle
+    public static final ForgeConfigSpec.BooleanValue ENABLE_REDSTONE_THROTTLE;
+    public static final ForgeConfigSpec.IntValue REDSTONE_UPDATES_PER_CHUNK_PER_TICK;
+
     // AutoOptimizer
     public static final ForgeConfigSpec.BooleanValue AUTO_OPTIMIZE_ENABLED;
 
@@ -89,6 +93,12 @@ public class ServerConfig {
         DISTANT_CHUNK_THRESHOLD = builder
                 .comment("Chunk distance from nearest player to be considered 'distant'")
                 .defineInRange("distantChunkThreshold", 8, 1, 32);
+        ENABLE_REDSTONE_THROTTLE = builder
+                .comment("Enable per-chunk redstone update throttling to prevent lag machines")
+                .define("enableRedstoneThrottle", true);
+        REDSTONE_UPDATES_PER_CHUNK_PER_TICK = builder
+                .comment("Maximum redstone neighbor-notify updates allowed per chunk per tick")
+                .defineInRange("redstoneUpdatesPerChunkPerTick", 64, 1, 1024);
         builder.pop();
 
         builder.comment("World Border Settings").push("border");
