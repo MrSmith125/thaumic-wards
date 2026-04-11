@@ -15,6 +15,7 @@ import com.thaumicwards.performance.TickRateManager;
 import com.thaumicwards.scoreboard.FactionScoreboard;
 import net.minecraft.entity.player.ServerPlayerEntity;
 import net.minecraft.util.math.ChunkPos;
+import net.minecraft.world.World;
 import net.minecraft.world.server.ServerWorld;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -42,6 +43,10 @@ public class ServerTickHandler {
         }
 
         ServerWorld world = (ServerWorld) event.world;
+
+        // Only run global logic once per tick (overworld only) to avoid
+        // running counters 2-3x fast when nether/end are loaded
+        if (world.dimension() != World.OVERWORLD) return;
 
         // Track TPS
         TPSMonitor.recordTick();

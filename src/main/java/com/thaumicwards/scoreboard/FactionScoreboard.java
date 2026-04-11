@@ -12,6 +12,9 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.text.StringTextComponent;
 import net.minecraft.util.text.TextFormatting;
 
+import java.util.HashSet;
+import java.util.Set;
+
 public class FactionScoreboard {
 
     private static final String OBJECTIVE_NAME = "tw_war";
@@ -19,6 +22,7 @@ public class FactionScoreboard {
     private static final String CRIMSONS_TEAM = "tw_crimsons";
 
     private static MinecraftServer server;
+    private static final Set<String> previousLines = new HashSet<>();
 
     public static void init(MinecraftServer srv) {
         server = srv;
@@ -82,15 +86,11 @@ public class FactionScoreboard {
         ScoreObjective objective = scoreboard.getObjective(OBJECTIVE_NAME);
         if (objective == null) return;
 
-        // Clear old scores
-        scoreboard.resetPlayerScore("\u00a7d=== Eternal War ===", objective);
-        clearLine(scoreboard, objective, 10);
-        clearLine(scoreboard, objective, 9);
-        clearLine(scoreboard, objective, 8);
-        clearLine(scoreboard, objective, 7);
-        clearLine(scoreboard, objective, 6);
-        clearLine(scoreboard, objective, 5);
-        clearLine(scoreboard, objective, 4);
+        // Clear all previous line entries
+        for (String line : previousLines) {
+            scoreboard.resetPlayerScore(line, objective);
+        }
+        previousLines.clear();
 
         // Get data
         Faction mystics = FactionManager.getMystics();
@@ -129,11 +129,7 @@ public class FactionScoreboard {
 
     private static void setLine(ServerScoreboard scoreboard, ScoreObjective objective, String text, int score) {
         scoreboard.getOrCreatePlayerScore(text, objective).setScore(score);
-    }
-
-    private static void clearLine(ServerScoreboard scoreboard, ScoreObjective objective, int score) {
-        // Vanilla doesn't have a direct way to remove by score, so we track line texts
-        // The resetPlayerScore approach works when we know the text
+        previousLines.add(text);
     }
 
     public static void reset() {
@@ -144,6 +140,7 @@ public class FactionScoreboard {
                 scoreboard.removeObjective(objective);
             }
         }
+        previousLines.clear();
         server = null;
     }
 }

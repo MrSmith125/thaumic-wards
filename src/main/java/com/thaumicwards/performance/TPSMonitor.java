@@ -48,6 +48,9 @@ public class TPSMonitor {
         return Math.min(tps, 20.0);
     }
 
+    /**
+     * Returns average milliseconds per tick interval (lower is better, 50ms = 20 TPS).
+     */
     public static double getAverageTickMs() {
         int count = filled ? WINDOW_SIZE : tickIndex;
         if (count == 0) return 0;
