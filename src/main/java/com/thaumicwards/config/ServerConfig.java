@@ -86,6 +86,11 @@ public class ServerConfig {
     public static final ForgeConfigSpec.IntValue PROFILER_AUTO_LOG_INTERVAL_TICKS;
     public static final ForgeConfigSpec.IntValue PROFILER_SNAPSHOT_INTERVAL_TICKS;
 
+    // Auto-Restart
+    public static final ForgeConfigSpec.BooleanValue AUTO_RESTART_ENABLED;
+    public static final ForgeConfigSpec.ConfigValue<java.util.List<? extends Integer>> RESTART_HOURS;
+    public static final ForgeConfigSpec.IntValue RESTART_WARNING_MINUTES;
+
     static {
         ForgeConfigSpec.Builder builder = new ForgeConfigSpec.Builder();
 
@@ -272,6 +277,23 @@ public class ServerConfig {
         PROFILER_SNAPSHOT_INTERVAL_TICKS = builder
                 .comment("Ticks between memory/packet snapshots (100 = 5 seconds)")
                 .defineInRange("profilerSnapshotIntervalTicks", 100, 20, 1200);
+        builder.pop();
+
+        builder.comment("Auto-Restart Settings",
+                "Combats memory leaks from Forge chunk cache, AE2 terminals,",
+                "Valkyrien Skies physics objects, and entity NBT accumulation.",
+                "Default schedule restarts every 6 hours at 04:00, 10:00, 16:00, 22:00.").push("autoRestart");
+        AUTO_RESTART_ENABLED = builder
+                .comment("Enable automatic scheduled server restarts")
+                .define("autoRestartEnabled", true);
+        RESTART_HOURS = builder
+                .comment("Hours of day (0-23) when the server should restart.",
+                         "Default: [4, 10, 16, 22] = every 6 hours, timed to clear memory before peak.")
+                .defineList("restartHours", java.util.Arrays.asList(4, 10, 16, 22),
+                        entry -> entry instanceof Integer && (Integer) entry >= 0 && (Integer) entry <= 23);
+        RESTART_WARNING_MINUTES = builder
+                .comment("Minutes before restart to begin warning players (default 15)")
+                .defineInRange("restartWarningMinutes", 15, 1, 60);
         builder.pop();
 
         SPEC = builder.build();

@@ -54,6 +54,7 @@ public class ModCommands {
         source.sendSuccess(new StringTextComponent("/thaumicwards lagmap [start|stop|entities|tiles|memory|network|players|dimensions|dump]").withStyle(TextFormatting.GOLD).append(new StringTextComponent(" - Performance profiler").withStyle(TextFormatting.GRAY)), false);
         source.sendSuccess(new StringTextComponent("/thaumicwards border set <radius> / border remove").withStyle(TextFormatting.GOLD).append(new StringTextComponent(" - Magic barrier").withStyle(TextFormatting.GRAY)), false);
         source.sendSuccess(new StringTextComponent("/thaumicwards contested add/remove/list").withStyle(TextFormatting.GOLD).append(new StringTextComponent(" - Contested zones").withStyle(TextFormatting.GRAY)), false);
+        source.sendSuccess(new StringTextComponent("/thaumicwards restart [status|now|cancel]").withStyle(TextFormatting.GOLD).append(new StringTextComponent(" - Auto-restart system").withStyle(TextFormatting.GRAY)), false);
         return 1;
     }
 }

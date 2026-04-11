@@ -186,6 +186,16 @@ public class AutoOptimizer {
             totalChanges += optimizeSophisticatedBackpacks(configDir);
         }
 
+        // Building Gadgets
+        if (isLoaded("buildinggadgets")) {
+            totalChanges += optimizeBuildingGadgets(serverConfigDir);
+        }
+
+        // Mystical Agriculture
+        if (isLoaded("mysticalagriculture")) {
+            totalChanges += optimizeMysticalAgriculture(configDir);
+        }
+
         // Compact Machines
         if (isLoaded("compactmachines")) {
             totalChanges += optimizeCompactMachines(serverConfigDir);
@@ -733,6 +743,24 @@ public class AutoOptimizer {
         changes.put("showAllAnvilVariants = true", "showAllAnvilVariants = false");
         changes.put("showAllTableVariants = true", "showAllTableVariants = false");
         return applyTomlChanges(file, changes, "Tinkers' Construct");
+    }
+
+    private static int optimizeBuildingGadgets(Path serverConfigDir) {
+        Path file = serverConfigDir.resolve("buildinggadgets-server.toml");
+        Map<String, String> changes = new LinkedHashMap<>();
+        changes.put("\"Max Placement/Tick\" = 1024", "\"Max Placement/Tick\" = 64");
+        changes.put("\"Max Copy/Tick\" = 32768", "\"Max Copy/Tick\" = 256");
+        changes.put("\"Max Copy Dimensions\" = 256", "\"Max Copy Dimensions\" = 64");
+        changes.put("\"Max Build Dimensions\" = 256", "\"Max Build Dimensions\" = 64");
+        return applyTomlChanges(file, changes, "Building Gadgets");
+    }
+
+    private static int optimizeMysticalAgriculture(Path configDir) {
+        Path file = configDir.resolve("mysticalagriculture-common.toml");
+        Map<String, String> changes = new LinkedHashMap<>();
+        changes.put("growthAcceleratorCooldown = 10", "growthAcceleratorCooldown = 30");
+        changes.put("fakePlayerWatering = true", "fakePlayerWatering = false");
+        return applyTomlChanges(file, changes, "Mystical Agriculture");
     }
 
     private static int optimizeTorchmaster(Path configDir) {

@@ -13,6 +13,7 @@ import com.thaumicwards.performance.ChunkLoadHandler;
 import com.thaumicwards.performance.EntityTickHandler;
 import com.thaumicwards.performance.PerformanceProfiler;
 import com.thaumicwards.performance.TickRateManager;
+import com.thaumicwards.restart.RestartScheduler;
 import com.thaumicwards.scoreboard.FactionScoreboard;
 import net.minecraft.entity.player.ServerPlayerEntity;
 import net.minecraft.util.text.StringTextComponent;
@@ -52,10 +53,11 @@ public class ModEventHandler {
             MinecraftForge.EVENT_BUS.register(com.thaumicwards.performance.RedstoneThrottler.class);
             MinecraftForge.EVENT_BUS.register(com.thaumicwards.performance.EntityCleanup.class);
             MinecraftForge.EVENT_BUS.register(PerformanceProfiler.class);
+            MinecraftForge.EVENT_BUS.register(RestartScheduler.class);
             handlersRegistered = true;
         }
 
-        // Load saved data — order matters: factions first, then progression
+        // Load saved data - order matters: factions first, then progression
         BorderSavedData.get(event.getServer().overworld());
         ClaimManager.init(event.getServer().overworld());
         FactionManager.init(event.getServer().overworld());
@@ -74,6 +76,9 @@ public class ModEventHandler {
         if (ServerConfig.PROFILER_AUTO_START.get()) {
             PerformanceProfiler.getInstance().setEnabled(true);
         }
+
+        // Initialize auto-restart scheduler
+        RestartScheduler.init();
     }
 
     @SubscribeEvent
@@ -100,7 +105,7 @@ public class ModEventHandler {
                 FactionScoreboard.assignPlayerTeam(player, faction);
             }
         } else {
-            // Returning player — restore their team color
+            // Returning player - restore their team color
             Faction faction = FactionManager.getPlayerFaction(playerId);
             if (faction != null) {
                 FactionScoreboard.assignPlayerTeam(player, faction);
@@ -112,6 +117,7 @@ public class ModEventHandler {
     public static void onServerStopping(FMLServerStoppingEvent event) {
         ThaumicWards.LOGGER.info("Thaumic Wards server stopping - saving data...");
         PerformanceProfiler.getInstance().setEnabled(false);
+        RestartScheduler.reset();
         com.thaumicwards.performance.EntityCleanup.reset();
         com.thaumicwards.performance.AdaptiveThrottler.reset();
         com.thaumicwards.performance.RedstoneThrottler.reset();
