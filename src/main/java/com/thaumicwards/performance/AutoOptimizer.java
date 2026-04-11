@@ -153,6 +153,21 @@ public class AutoOptimizer {
             totalChanges += optimizeInControl(configDir);
         }
 
+        // Extreme Reactors
+        if (isLoaded("bigreactors")) {
+            totalChanges += optimizeExtremeReactors(configDir);
+        }
+
+        // RFTools Builder
+        if (isLoaded("rftoolsbuilder")) {
+            totalChanges += optimizeRFToolsBuilder(serverConfigDir);
+        }
+
+        // RFTools Utility (screens)
+        if (isLoaded("rftoolsutility")) {
+            totalChanges += optimizeRFToolsUtility(serverConfigDir);
+        }
+
         // server.properties
         totalChanges += optimizeServerProperties();
 
@@ -501,6 +516,38 @@ public class AutoOptimizer {
             ThaumicWards.LOGGER.warn("Failed to optimize Apotheosis: {}", e.getMessage());
         }
         return count;
+    }
+
+    private static int optimizeExtremeReactors(Path configDir) {
+        Path file = configDir.resolve("extremereactors").resolve("common.toml");
+        Map<String, String> changes = new LinkedHashMap<>();
+        changes.put("maxReactorSize = 32", "maxReactorSize = 16");
+        changes.put("maxTurbineSize = 32", "maxTurbineSize = 16");
+        changes.put("maxReactorHeight = 48", "maxReactorHeight = 32");
+        changes.put("ticksPerRedstoneUpdate = 20", "ticksPerRedstoneUpdate = 40");
+        return applyTomlChanges(file, changes, "Extreme Reactors");
+    }
+
+    private static int optimizeRFToolsBuilder(Path serverConfigDir) {
+        Path file = serverConfigDir.resolve("rftoolsbuilder-server.toml");
+        Map<String, String> changes = new LinkedHashMap<>();
+        changes.put("quarryBaseSpeed = 8", "quarryBaseSpeed = 2");
+        changes.put("quarryChunkloads = true", "quarryChunkloads = false");
+        changes.put("clearingQuarryAllowed = true", "clearingQuarryAllowed = false");
+        changes.put("maxBuilderDimension = 512", "maxBuilderDimension = 128");
+        changes.put("quarryInfusionSpeedFactor = 20", "quarryInfusionSpeedFactor = 4");
+        changes.put("surfaceAreaPerTick = 262144", "surfaceAreaPerTick = 65536");
+        changes.put("maxShieldSize = 256", "maxShieldSize = 128");
+        return applyTomlChanges(file, changes, "RFTools Builder");
+    }
+
+    private static int optimizeRFToolsUtility(Path serverConfigDir) {
+        Path file = serverConfigDir.resolve("rftoolsutility-server.toml");
+        Map<String, String> changes = new LinkedHashMap<>();
+        changes.put("screenRefreshTiming = 500", "screenRefreshTiming = 1000");
+        changes.put("ticksPerLocatorScan = 40", "ticksPerLocatorScan = 80");
+        changes.put("locatorMaxEnergyChunks = 25", "locatorMaxEnergyChunks = 9");
+        return applyTomlChanges(file, changes, "RFTools Utility");
     }
 
     private static int optimizeInControl(Path configDir) {
