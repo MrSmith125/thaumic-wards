@@ -33,6 +33,7 @@ public class ServerTickHandler {
     private static int warStatusCounter = 300;
     private static int buffCounter = 150;
     private static int scoreboardCounter = 0;
+    private static int adaptiveCounter = 100; // staggered
 
     @SubscribeEvent
     public static void onServerTick(TickEvent.WorldTickEvent event) {
@@ -69,6 +70,13 @@ public class ServerTickHandler {
         // Reset redstone throttle counters
         com.thaumicwards.performance.RedstoneThrottler.resetCounts();
 
+        // Adaptive TPS throttler - every 200 ticks
+        adaptiveCounter++;
+        if (adaptiveCounter >= 200) {
+            adaptiveCounter = 0;
+            com.thaumicwards.performance.AdaptiveThrottler.tick();
+        }
+
         // Progression system — award playtime points every 1200 ticks (1 minute)
         progressionCounter++;
         if (progressionCounter >= 1200) {
@@ -92,14 +100,14 @@ public class ServerTickHandler {
 
         // Scoreboard update
         scoreboardCounter++;
-        if (scoreboardCounter >= ServerConfig.SCOREBOARD_UPDATE_INTERVAL_TICKS.get()) {
+        if (scoreboardCounter >= com.thaumicwards.performance.AdaptiveThrottler.getEffectiveScoreboardInterval()) {
             scoreboardCounter = 0;
             FactionScoreboard.updateSidebar(world.getServer());
         }
 
         // Send claim boundary particles to nearby players every 40 ticks
         claimParticleCounter++;
-        if (claimParticleCounter >= 40) {
+        if (claimParticleCounter >= com.thaumicwards.performance.AdaptiveThrottler.getEffectiveClaimParticleInterval()) {
             claimParticleCounter = 0;
             sendClaimParticles(world);
         }

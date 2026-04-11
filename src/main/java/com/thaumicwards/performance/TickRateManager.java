@@ -28,7 +28,7 @@ public class TickRateManager {
     private static void recalculate(ServerWorld world) {
         // Build new set then swap (avoids clearing while readers are iterating)
         Set<Long> newSet = ConcurrentHashMap.newKeySet();
-        int threshold = ServerConfig.DISTANT_CHUNK_THRESHOLD.get();
+        int threshold = AdaptiveThrottler.getEffectiveDistantChunkThreshold();
         List<ServerPlayerEntity> players = world.players();
 
         if (players.isEmpty()) {

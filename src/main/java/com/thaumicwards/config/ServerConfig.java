@@ -66,6 +66,18 @@ public class ServerConfig {
     public static final ForgeConfigSpec.BooleanValue ENABLE_REDSTONE_THROTTLE;
     public static final ForgeConfigSpec.IntValue REDSTONE_UPDATES_PER_CHUNK_PER_TICK;
 
+    // Adaptive Throttle
+    public static final ForgeConfigSpec.BooleanValue ADAPTIVE_THROTTLE_ENABLED;
+
+    // Entity Cleanup
+    public static final ForgeConfigSpec.BooleanValue ENTITY_CLEANUP_ENABLED;
+    public static final ForgeConfigSpec.IntValue ENTITY_CLEANUP_INTERVAL_TICKS;
+    public static final ForgeConfigSpec.BooleanValue ENTITY_CLEANUP_ITEMS_ENABLED;
+    public static final ForgeConfigSpec.BooleanValue ENTITY_CLEANUP_XP_ENABLED;
+    public static final ForgeConfigSpec.IntValue ENTITY_CLEANUP_ITEM_AGE_TICKS;
+    public static final ForgeConfigSpec.IntValue ENTITY_CLEANUP_XP_AGE_TICKS;
+    public static final ForgeConfigSpec.IntValue ENTITY_CLEANUP_WARN_THRESHOLD;
+
     // AutoOptimizer
     public static final ForgeConfigSpec.BooleanValue AUTO_OPTIMIZE_ENABLED;
 
@@ -99,6 +111,26 @@ public class ServerConfig {
         REDSTONE_UPDATES_PER_CHUNK_PER_TICK = builder
                 .comment("Maximum redstone neighbor-notify updates allowed per chunk per tick")
                 .defineInRange("redstoneUpdatesPerChunkPerTick", 64, 1, 1024);
+        ADAPTIVE_THROTTLE_ENABLED = builder
+                .comment("Enable adaptive TPS-based throttling that auto-adjusts performance when TPS drops")
+                .define("adaptiveThrottleEnabled", true);
+        builder.pop();
+
+        builder.comment("Entity Cleanup Settings").push("entityCleanup");
+        ENTITY_CLEANUP_ENABLED = builder.comment("Enable automatic periodic entity cleanup")
+                .define("entityCleanupEnabled", true);
+        ENTITY_CLEANUP_INTERVAL_TICKS = builder.comment("Ticks between cleanups (6000 = 5 minutes)")
+                .defineInRange("entityCleanupIntervalTicks", 6000, 1200, 72000);
+        ENTITY_CLEANUP_ITEMS_ENABLED = builder.comment("Remove old ground items")
+                .define("cleanupItemsEnabled", true);
+        ENTITY_CLEANUP_XP_ENABLED = builder.comment("Remove old XP orbs")
+                .define("cleanupXpEnabled", true);
+        ENTITY_CLEANUP_ITEM_AGE_TICKS = builder.comment("Item age before removal (6000 = 5 min)")
+                .defineInRange("itemAgeTicks", 6000, 600, 72000);
+        ENTITY_CLEANUP_XP_AGE_TICKS = builder.comment("XP orb age before removal (3600 = 3 min)")
+                .defineInRange("xpAgeTicks", 3600, 600, 72000);
+        ENTITY_CLEANUP_WARN_THRESHOLD = builder.comment("Warn if any entity type exceeds this count")
+                .defineInRange("warnThreshold", 100, 10, 10000);
         builder.pop();
 
         builder.comment("World Border Settings").push("border");

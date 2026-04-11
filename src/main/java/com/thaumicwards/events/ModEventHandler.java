@@ -50,6 +50,7 @@ public class ModEventHandler {
             MinecraftForge.EVENT_BUS.register(FactionPvPHandler.class);
             MinecraftForge.EVENT_BUS.register(ChatHandler.class);
             MinecraftForge.EVENT_BUS.register(com.thaumicwards.performance.RedstoneThrottler.class);
+            MinecraftForge.EVENT_BUS.register(com.thaumicwards.performance.EntityCleanup.class);
             MinecraftForge.EVENT_BUS.register(PerformanceProfiler.class);
             handlersRegistered = true;
         }
@@ -111,6 +112,8 @@ public class ModEventHandler {
     public static void onServerStopping(FMLServerStoppingEvent event) {
         ThaumicWards.LOGGER.info("Thaumic Wards server stopping - saving data...");
         PerformanceProfiler.getInstance().setEnabled(false);
+        com.thaumicwards.performance.EntityCleanup.reset();
+        com.thaumicwards.performance.AdaptiveThrottler.reset();
         com.thaumicwards.performance.RedstoneThrottler.reset();
         FactionScoreboard.reset();
         TickRateManager.reset();

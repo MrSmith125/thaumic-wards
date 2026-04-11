@@ -33,7 +33,7 @@ public class EntityTickHandler {
         int chunkZ = ((int) entity.getZ()) >> 4;
 
         if (TickRateManager.isDistantChunk(chunkX, chunkZ)) {
-            int interval = ServerConfig.DISTANT_CHUNK_TICK_INTERVAL.get();
+            int interval = AdaptiveThrottler.getEffectiveDistantTickInterval();
 
             // Animals and ambient mobs can tolerate much larger skip intervals
             if (entity instanceof AnimalEntity || entity instanceof AmbientEntity) {

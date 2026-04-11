@@ -22,6 +22,7 @@ public class ModCommands {
         WarCommand.register(dispatcher);
         TPSCommand.register(dispatcher);
         LagMapCommand.register(dispatcher);
+        CleanupCommand.register(dispatcher);
     }
 
     private static int showHelp(CommandContext<CommandSource> context) {
