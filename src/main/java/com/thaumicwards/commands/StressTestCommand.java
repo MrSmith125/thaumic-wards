@@ -56,6 +56,9 @@ public class StressTestCommand {
                         .executes(StressTestCommand::cleanup))
                     .then(Commands.literal("full")
                         .executes(StressTestCommand::runFullStress))
+                    .then(Commands.literal("simulate")
+                        .then(Commands.argument("players", IntegerArgumentType.integer(1, 100))
+                            .executes(StressTestCommand::runSimulatePlayers)))
                 )
         );
     }
@@ -445,6 +448,219 @@ public class StressTestCommand {
 
         } catch (Exception e) {
             src.sendFailure(msg("Must be run by a player. Error: " + e.getMessage(), TextFormatting.RED));
+        }
+        return 1;
+    }
+
+    private static int runSimulatePlayers(CommandContext<CommandSource> context) {
+        int playerCount = IntegerArgumentType.getInteger(context, "players");
+        CommandSource src = context.getSource();
+        try {
+            ServerPlayerEntity player = src.getPlayerOrException();
+            ServerWorld world = player.getLevel();
+            Runtime rt = Runtime.getRuntime();
+
+            double startTps = TPSMonitor.getCurrentTPS();
+            long startMem = getMemMB();
+
+            src.sendSuccess(header("SIMULATE " + playerCount + " PLAYERS"), false);
+            src.sendSuccess(msg("Creating " + playerCount + " player hotspots spread across the world...", TextFormatting.AQUA), false);
+            src.sendSuccess(stat("Starting TPS", String.format("%.1f", startTps)), false);
+            src.sendSuccess(stat("Starting Memory", startMem + " MB"), false);
+
+            BlockPos origin = player.blockPosition();
+            Random rng = new Random(12345); // deterministic seed for reproducibility
+            int totalChunksLoaded = 0;
+            int totalEntitiesSpawned = 0;
+            int hotspotSpacing = 200; // 200 blocks between each simulated player
+
+            // Phase 1: Create hotspots and load chunks around each
+            src.sendSuccess(msg("", TextFormatting.WHITE), false);
+            src.sendSuccess(msg("[1/3] Loading chunks at " + playerCount + " locations (simulating view-distance 5)...", TextFormatting.GOLD), false);
+
+            List<BlockPos> hotspots = new ArrayList<>();
+            int spotsPerRing = 8;
+            int ring = 0;
+            int spotInRing = 0;
+
+            for (int i = 0; i < playerCount; i++) {
+                // Spread players in concentric rings
+                double angle = 2 * Math.PI * spotInRing / Math.max(1, Math.min(spotsPerRing * (ring + 1), playerCount));
+                int dist = hotspotSpacing * (ring + 1);
+                int hx = origin.getX() + (int)(Math.cos(angle) * dist) + rng.nextInt(100) - 50;
+                int hz = origin.getZ() + (int)(Math.sin(angle) * dist) + rng.nextInt(100) - 50;
+                int hy = world.getHeight(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, hx, hz);
+                BlockPos hotspot = new BlockPos(hx, hy, hz);
+                hotspots.add(hotspot);
+
+                spotInRing++;
+                if (spotInRing >= spotsPerRing * (ring + 1)) {
+                    spotInRing = 0;
+                    ring++;
+                }
+
+                // Load chunks in a 5-chunk radius around this hotspot (simulates view-distance 5)
+                ChunkPos cp = new ChunkPos(hotspot);
+                int viewDist = 5;
+                for (int dx = -viewDist; dx <= viewDist; dx++) {
+                    for (int dz = -viewDist; dz <= viewDist; dz++) {
+                        if (dx * dx + dz * dz <= viewDist * viewDist) {
+                            world.getChunk(cp.x + dx, cp.z + dz);
+                            totalChunksLoaded++;
+                        }
+                    }
+                }
+
+                // Progress every 10 hotspots
+                if ((i + 1) % 10 == 0) {
+                    src.sendSuccess(msg(String.format("  ...%d/%d hotspots created (%d chunks loaded)",
+                            i + 1, playerCount, totalChunksLoaded), TextFormatting.GRAY), false);
+                }
+            }
+
+            src.sendSuccess(stat("  Hotspots created", String.valueOf(hotspots.size())), false);
+            src.sendSuccess(stat("  Chunks loaded", String.valueOf(totalChunksLoaded)), false);
+            src.sendSuccess(tpsReport(startTps, TPSMonitor.getCurrentTPS()), false);
+            src.sendSuccess(memReport(startMem, getMemMB()), false);
+
+            // Phase 2: Spawn mobs at each hotspot (simulating natural spawning)
+            src.sendSuccess(msg("", TextFormatting.WHITE), false);
+            src.sendSuccess(msg("[2/3] Spawning mobs at each hotspot (10-15 per location)...", TextFormatting.GOLD), false);
+            double preMobTps = TPSMonitor.getCurrentTPS();
+            long preMobMem = getMemMB();
+
+            EntityType<?>[] naturalMobs = {
+                EntityType.ZOMBIE, EntityType.SKELETON, EntityType.SPIDER, EntityType.CREEPER,
+                EntityType.COW, EntityType.SHEEP, EntityType.PIG, EntityType.CHICKEN,
+                EntityType.ENDERMAN, EntityType.WITCH
+            };
+
+            for (BlockPos hotspot : hotspots) {
+                int mobsPerSpot = 10 + rng.nextInt(6); // 10-15 mobs per hotspot
+                for (int m = 0; m < mobsPerSpot; m++) {
+                    EntityType<?> type = naturalMobs[rng.nextInt(naturalMobs.length)];
+                    int mx = hotspot.getX() + rng.nextInt(64) - 32;
+                    int mz = hotspot.getZ() + rng.nextInt(64) - 32;
+                    int my = world.getHeight(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, mx, mz);
+                    Entity ent = type.create(world);
+                    if (ent != null) {
+                        ent.moveTo(mx + 0.5, my, mz + 0.5, rng.nextFloat() * 360, 0);
+                        if (ent instanceof MobEntity) {
+                            ((MobEntity) ent).finalizeSpawn(world, world.getCurrentDifficultyAt(new BlockPos(mx, my, mz)),
+                                    SpawnReason.NATURAL, null, null);
+                        }
+                        ent.getPersistentData().putBoolean("tw_stress", true);
+                        if (world.addFreshEntity(ent)) {
+                            spawnedEntityIds.add(ent.getUUID());
+                            totalEntitiesSpawned++;
+                        }
+                    }
+                }
+            }
+
+            src.sendSuccess(stat("  Entities spawned", String.valueOf(totalEntitiesSpawned)), false);
+            src.sendSuccess(tpsReport(preMobTps, TPSMonitor.getCurrentTPS()), false);
+            src.sendSuccess(memReport(preMobMem, getMemMB()), false);
+
+            // Phase 3: Place some tile entities at random hotspots (simulating player bases)
+            src.sendSuccess(msg("", TextFormatting.WHITE), false);
+            src.sendSuccess(msg("[3/3] Placing tile entities at hotspots (simulating bases)...", TextFormatting.GOLD), false);
+            double preTileTps = TPSMonitor.getCurrentTPS();
+            int tilesPlaced = 0;
+
+            // Place 5-10 tile entities at each hotspot
+            for (BlockPos hotspot : hotspots) {
+                int tilesPerSpot = 5 + rng.nextInt(6);
+                for (int t = 0; t < tilesPerSpot; t++) {
+                    int tx = hotspot.getX() + rng.nextInt(20) - 10;
+                    int tz = hotspot.getZ() + rng.nextInt(20) - 10;
+                    int ty = world.getHeight(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, tx, tz);
+                    BlockPos pos = new BlockPos(tx, ty, tz);
+                    BlockPos below = pos.below();
+
+                    // Place support + tile entity
+                    if (!world.getBlockState(below).isAir(world, below) || true) {
+                        world.setBlock(pos, Blocks.STONE.defaultBlockState(), 2);
+                        placedBlocks.add(pos);
+                        BlockPos above = pos.above();
+                        world.setBlock(above, (t % 3 == 0 ? Blocks.CHEST : t % 3 == 1 ? Blocks.FURNACE : Blocks.HOPPER).defaultBlockState(), 2);
+                        placedBlocks.add(above);
+                        tilesPlaced++;
+                    }
+                }
+            }
+
+            src.sendSuccess(stat("  Tile entities placed", String.valueOf(tilesPlaced)), false);
+            src.sendSuccess(tpsReport(preTileTps, TPSMonitor.getCurrentTPS()), false);
+
+            // === Final Summary ===
+            double endTps = TPSMonitor.getCurrentTPS();
+            long endMem = getMemMB();
+            long maxMem = rt.maxMemory() / 1024 / 1024;
+
+            src.sendSuccess(msg("", TextFormatting.WHITE), false);
+            src.sendSuccess(header(playerCount + "-PLAYER SIMULATION RESULTS"), false);
+            src.sendSuccess(stat("Simulated players", String.valueOf(playerCount)), false);
+            src.sendSuccess(stat("Hotspot spacing", hotspotSpacing + " blocks apart"), false);
+            src.sendSuccess(stat("Chunks loaded", String.valueOf(totalChunksLoaded)), false);
+            src.sendSuccess(stat("Entities spawned", String.valueOf(totalEntitiesSpawned)), false);
+            src.sendSuccess(stat("Tile entities placed", String.valueOf(tilesPlaced)), false);
+
+            TextFormatting tpsColor = endTps >= 18 ? TextFormatting.GREEN : endTps >= 15 ? TextFormatting.YELLOW
+                    : endTps >= 10 ? TextFormatting.RED : TextFormatting.DARK_RED;
+            src.sendSuccess(new StringTextComponent("  TPS: ").withStyle(TextFormatting.GRAY)
+                    .append(new StringTextComponent(String.format("%.1f -> %.1f", startTps, endTps)).withStyle(tpsColor)), false);
+
+            int memPct = (int)(endMem * 100 / maxMem);
+            TextFormatting memColor = memPct < 60 ? TextFormatting.GREEN : memPct < 80 ? TextFormatting.YELLOW : TextFormatting.RED;
+            src.sendSuccess(new StringTextComponent("  Memory: ").withStyle(TextFormatting.GRAY)
+                    .append(new StringTextComponent(String.format("%dMB / %dMB (%d%%)", endMem, maxMem, memPct)).withStyle(memColor)), false);
+
+            // Estimated per-player cost
+            double tpsDrop = startTps - endTps;
+            double perPlayerTpsCost = playerCount > 0 ? tpsDrop / playerCount : 0;
+            long memPerPlayer = playerCount > 0 ? (endMem - startMem) / playerCount : 0;
+            src.sendSuccess(stat("Est. TPS cost/player", String.format("%.3f", perPlayerTpsCost)), false);
+            src.sendSuccess(stat("Est. memory/player", memPerPlayer + " MB"), false);
+
+            // Max player estimate
+            double availableTps = 20.0 - 5.0; // reserve 5 TPS for base server overhead
+            int maxPlayers = perPlayerTpsCost > 0 ? (int)(availableTps / perPlayerTpsCost) : 999;
+            TextFormatting maxColor = maxPlayers >= 60 ? TextFormatting.GREEN : maxPlayers >= 40 ? TextFormatting.YELLOW : TextFormatting.RED;
+            src.sendSuccess(new StringTextComponent("  Est. max players before TPS<15: ").withStyle(TextFormatting.GRAY)
+                    .append(new StringTextComponent(String.valueOf(Math.min(maxPlayers, 200))).withStyle(maxColor, TextFormatting.BOLD)), false);
+
+            // Verdict
+            String verdict;
+            TextFormatting verdictColor;
+            if (endTps >= 18 && memPct < 70) {
+                verdict = "EXCELLENT - Server handles " + playerCount + " simulated players easily";
+                verdictColor = TextFormatting.GREEN;
+            } else if (endTps >= 15) {
+                verdict = "GOOD - Playable but approaching limits";
+                verdictColor = TextFormatting.YELLOW;
+            } else if (endTps >= 10) {
+                verdict = "WARNING - TPS below 15, reduce view-distance or entity caps";
+                verdictColor = TextFormatting.RED;
+            } else {
+                verdict = "CRITICAL - Server cannot handle " + playerCount + " players at current settings";
+                verdictColor = TextFormatting.DARK_RED;
+            }
+            src.sendSuccess(new StringTextComponent("  Verdict: ").withStyle(TextFormatting.GRAY)
+                    .append(new StringTextComponent(verdict).withStyle(verdictColor, TextFormatting.BOLD)), false);
+
+            src.sendSuccess(msg("", TextFormatting.WHITE), false);
+            src.sendSuccess(msg("Entities and tiles remain loaded to observe sustained TPS impact.", TextFormatting.GRAY), false);
+            src.sendSuccess(msg("Run /thaumicwards stresstest cleanup when done observing.", TextFormatting.GRAY), false);
+            src.sendSuccess(msg("Run /thaumicwards lagmap for detailed profiler data.", TextFormatting.GRAY), false);
+
+            ThaumicWards.LOGGER.info("{}-player simulation: TPS {}->{}, Memory {}->{}MB, {} entities, {} tiles, {} chunks",
+                    playerCount, String.format("%.1f", startTps), String.format("%.1f", endTps),
+                    startMem, endMem, totalEntitiesSpawned, tilesPlaced, totalChunksLoaded);
+
+        } catch (Exception e) {
+            src.sendFailure(msg("Must be run by a player. Error: " + e.getMessage(), TextFormatting.RED));
+            ThaumicWards.LOGGER.error("Simulate players failed", e);
         }
         return 1;
     }
