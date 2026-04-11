@@ -24,6 +24,7 @@ public class ModCommands {
         LagMapCommand.register(dispatcher);
         CleanupCommand.register(dispatcher);
         com.thaumicwards.commands.RestartCommand.register(dispatcher);
+        StressTestCommand.register(dispatcher);
     }
 
     private static int showHelp(CommandContext<CommandSource> context) {
