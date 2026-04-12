@@ -53,6 +53,7 @@ public class ModEventHandler {
             MinecraftForge.EVENT_BUS.register(com.thaumicwards.performance.EntityCleanup.class);
             MinecraftForge.EVENT_BUS.register(PerformanceProfiler.class);
             MinecraftForge.EVENT_BUS.register(com.thaumicwards.performance.RestartScheduler.class);
+            MinecraftForge.EVENT_BUS.register(com.thaumicwards.performance.SpawnThrottler.class);
             handlersRegistered = true;
         }
 
@@ -65,6 +66,7 @@ public class ModEventHandler {
         ContestedZoneManager.init(event.getServer().overworld());
         FactionWarStatus.recalculate();
         FactionScoreboard.init(event.getServer());
+        com.thaumicwards.performance.AdaptiveThrottler.setServer(event.getServer());
 
         // Run AutoOptimizer on first startup
         if (ServerConfig.AUTO_OPTIMIZE_ENABLED.get()) {

@@ -21,6 +21,30 @@ public class AdaptiveThrottler {
     private static int overrideScoreboardInterval = -1, overrideParticleInterval = -1;
     private static int overrideBuffInterval = -1;
 
+    // Dynamic view distance management
+    private static net.minecraft.server.MinecraftServer serverRef;
+    private static int baseViewDistance = -1;
+
+    /** Store a reference to the server for dynamic view distance. Call from onServerStarting. */
+    public static void setServer(net.minecraft.server.MinecraftServer server) {
+        serverRef = server;
+        baseViewDistance = server.getPlayerList().getViewDistance();
+    }
+
+    /**
+     * Returns the spawn cancel probability for the current throttle level.
+     * 0.0 = allow all spawns, 1.0 = cancel all spawns.
+     * Hostile and passive use different rates.
+     */
+    public static double getSpawnCancelChance(boolean isPassive) {
+        switch (currentLevel) {
+            case LIGHT:    return isPassive ? 0.25 : 0.0;   // 25% passive deny, hostiles untouched
+            case MODERATE: return isPassive ? 0.50 : 0.30;  // 50% passive, 30% hostile deny
+            case SEVERE:   return isPassive ? 0.75 : 0.50;  // 75% passive, 50% hostile deny
+            default:       return 0.0;
+        }
+    }
+
     public static void tick() {
         if (!ServerConfig.ADAPTIVE_THROTTLE_ENABLED.get()) {
             if (currentLevel != ThrottleLevel.NONE) { restoreBaselines(); currentLevel = ThrottleLevel.NONE; }
@@ -87,6 +111,7 @@ public class AdaptiveThrottler {
                 overrideScoreboardInterval = baseScoreboardInterval * 2;
                 overrideParticleInterval = 60;
                 overrideBuffInterval = -1;
+                // View distance unchanged at LIGHT
                 ThaumicWards.LOGGER.warn("[AdaptiveThrottler] TPS={} — LIGHT: tick interval {}->{}, threshold {}->{}, scoreboard {}->{}",
                         String.format("%.1f", tps), baseTickInterval, overrideTickInterval,
                         baseThreshold, overrideThreshold, baseScoreboardInterval, overrideScoreboardInterval);
@@ -98,6 +123,8 @@ public class AdaptiveThrottler {
                 overrideScoreboardInterval = baseScoreboardInterval * 3;
                 overrideParticleInterval = 80;
                 overrideBuffInterval = baseBuffInterval * 2;
+                // Drop view distance by 2 under MODERATE load
+                setViewDistance(Math.max(3, baseViewDistance - 2));
                 ThaumicWards.LOGGER.warn("[AdaptiveThrottler] TPS={} — MODERATE: tick interval {}->{}, threshold {}->{}, scoreboard {}->{}",
                         String.format("%.1f", tps), baseTickInterval, overrideTickInterval,
                         baseThreshold, overrideThreshold, baseScoreboardInterval, overrideScoreboardInterval);
@@ -110,6 +137,8 @@ public class AdaptiveThrottler {
                 overrideScoreboardInterval = baseScoreboardInterval * 6;
                 overrideParticleInterval = 160;
                 overrideBuffInterval = baseBuffInterval * 3;
+                // Drop view distance by 4 under SEVERE load (minimum 3)
+                setViewDistance(Math.max(3, baseViewDistance - 4));
                 ThaumicWards.LOGGER.warn("[AdaptiveThrottler] TPS={} — SEVERE: all throttles maximally engaged" +
                         " (tick *8, threshold -{}, scoreboard *6, particles every 160t, buffs *3)",
                         String.format("%.1f", tps), 5);
@@ -133,6 +162,18 @@ public class AdaptiveThrottler {
         overrideTickInterval = -1; overrideThreshold = -1;
         overrideScoreboardInterval = -1; overrideParticleInterval = -1;
         overrideBuffInterval = -1;
+        // Restore view distance
+        if (baseViewDistance > 0) setViewDistance(baseViewDistance);
+    }
+
+    private static void setViewDistance(int vd) {
+        if (serverRef != null && serverRef.getPlayerList() != null) {
+            int current = serverRef.getPlayerList().getViewDistance();
+            if (current != vd) {
+                serverRef.getPlayerList().setViewDistance(vd);
+                ThaumicWards.LOGGER.info("[AdaptiveThrottler] View distance changed: {} -> {}", current, vd);
+            }
+        }
     }
 
     public static void reset() {
