@@ -137,7 +137,7 @@ public class EntityTickHandler {
         "deer",           // TF and Environmental
     };
 
-    @SubscribeEvent
+    @SubscribeEvent(priority = net.minecraftforge.eventbus.api.EventPriority.HIGH)
     public static void onLivingUpdate(LivingEvent.LivingUpdateEvent event) {
         // Guard: require at least the chunk optimisation flag to be on
         if (!ServerConfig.ENABLE_CHUNK_LOAD_OPTIMIZATION.get()) {
@@ -310,12 +310,28 @@ public class EntityTickHandler {
         NEUTRAL,        // Neutral or misc
     }
 
+    // Cache EntityType -> EntityCategory to avoid per-tick registry lookups and String allocations.
+    // EntityType objects are singletons (one per entity type), so this is safe and bounded.
+    private static final java.util.concurrent.ConcurrentHashMap<net.minecraft.entity.EntityType<?>, EntityCategory>
+            TYPE_CATEGORY_CACHE = new java.util.concurrent.ConcurrentHashMap<>();
+
     /**
      * Classifies an entity into one of our tick-skip categories.
-     * Uses registry name string matching for mod-specific classification
-     * since the mods are not compile-time dependencies.
+     * Uses a per-EntityType cache to avoid repeated registry name lookups
+     * and String allocations on every tick for every entity.
      */
     private static EntityCategory classifyEntity(LivingEntity entity) {
+        // Fast path: check the type-level cache first
+        EntityCategory cached = TYPE_CATEGORY_CACHE.get(entity.getType());
+        if (cached != null) return cached;
+
+        EntityCategory result = classifyEntityUncached(entity);
+        TYPE_CATEGORY_CACHE.put(entity.getType(), result);
+        return result;
+    }
+
+    /** Performs the actual classification — called once per EntityType, then cached. */
+    private static EntityCategory classifyEntityUncached(LivingEntity entity) {
         String registryName = getRegistryName(entity);
 
         // Always check boss blacklist first regardless of mod
@@ -331,11 +347,9 @@ public class EntityTickHandler {
         if (MOD_ICE_AND_FIRE.equals(namespace)
                 || MOD_MOWZIES.equals(namespace)
                 || MOD_TWILIGHT_FOREST.equals(namespace)) {
-            // Boss fragments already handled above; remaining are complex
             if (isModdedComplexPath(path)) {
                 return EntityCategory.MODDED_COMPLEX;
             }
-            // Unrecognised entities from these mods default to modded complex
             return EntityCategory.MODDED_COMPLEX;
         }
 
@@ -349,7 +363,6 @@ public class EntityTickHandler {
             if (isModdedComplexPath(path)) {
                 return EntityCategory.MODDED_COMPLEX;
             }
-            // Quark's simpler critters (stoneling, toretoise, etc.) are like passives
             return EntityCategory.PASSIVE;
         }
 
@@ -358,7 +371,6 @@ public class EntityTickHandler {
                 || MOD_UNTAMED_WILDS.equals(namespace)
                 || MOD_ENVIRONMENTAL.equals(namespace)
                 || MOD_UPGRADE_AQUATIC.equals(namespace)) {
-            // If they somehow implement IMob, treat as hostile
             if (entity instanceof IMob) return EntityCategory.HOSTILE;
             return EntityCategory.PASSIVE;
         }
