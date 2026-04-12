@@ -78,6 +78,21 @@ public class ServerConfig {
     public static final ForgeConfigSpec.IntValue ENTITY_CLEANUP_XP_AGE_TICKS;
     public static final ForgeConfigSpec.IntValue ENTITY_CLEANUP_WARN_THRESHOLD;
 
+    // Entity Hard Caps
+    public static final ForgeConfigSpec.BooleanValue ENTITY_HARD_CAPS_ENABLED;
+    public static final ForgeConfigSpec.IntValue ENTITY_CAP_TOTAL;
+    public static final ForgeConfigSpec.IntValue ENTITY_CAP_PER_TYPE;
+    public static final ForgeConfigSpec.IntValue ENTITY_CAP_PASSIVE_MOBS;
+    public static final ForgeConfigSpec.IntValue ENTITY_CAP_HOSTILE_MOBS;
+    public static final ForgeConfigSpec.IntValue ENTITY_CAP_MINECARTS;
+    public static final ForgeConfigSpec.IntValue ENTITY_HARD_CAP_CHECK_INTERVAL;
+
+    // Entity Tick Skipping
+    public static final ForgeConfigSpec.BooleanValue ENTITY_TICK_SKIP_ENABLED;
+    public static final ForgeConfigSpec.IntValue ENTITY_TICK_SKIP_PASSIVE_NEAR_INTERVAL;
+    public static final ForgeConfigSpec.IntValue ENTITY_TICK_SKIP_PASSIVE_DISTANT_INTERVAL;
+    public static final ForgeConfigSpec.IntValue ENTITY_TICK_SKIP_TPS_THRESHOLD;
+
     // AutoOptimizer
     public static final ForgeConfigSpec.BooleanValue AUTO_OPTIMIZE_ENABLED;
 
@@ -105,11 +120,11 @@ public class ServerConfig {
                 .comment("Fraction of entities ticked in unoccupied distant chunks (0.0 = none, 1.0 = all)")
                 .defineInRange("entityTickReductionFactor", 0.5, 0.0, 1.0);
         DISTANT_CHUNK_TICK_INTERVAL = builder
-                .comment("Ticks between entity updates in distant chunks (higher = less frequent)")
-                .defineInRange("distantChunkTickInterval", 20, 1, 200);
+                .comment("Ticks between entity updates in distant chunks (higher = less frequent); 40 = 2 s per update")
+                .defineInRange("distantChunkTickInterval", 40, 1, 200);
         DISTANT_CHUNK_THRESHOLD = builder
-                .comment("Chunk distance from nearest player to be considered 'distant'")
-                .defineInRange("distantChunkThreshold", 8, 1, 32);
+                .comment("Chunk distance from nearest player to be considered 'distant' (6 = 96 blocks, was 8 = 128 blocks)")
+                .defineInRange("distantChunkThreshold", 6, 1, 32);
         ENABLE_REDSTONE_THROTTLE = builder
                 .comment("Enable per-chunk redstone update throttling to prevent lag machines")
                 .define("enableRedstoneThrottle", true);
@@ -136,6 +151,34 @@ public class ServerConfig {
                 .defineInRange("xpAgeTicks", 3600, 600, 72000);
         ENTITY_CLEANUP_WARN_THRESHOLD = builder.comment("Warn if any entity type exceeds this count")
                 .defineInRange("warnThreshold", 100, 10, 10000);
+        builder.pop();
+
+        builder.comment("Entity Hard Cap Settings - enforced every N ticks, excess entities are removed oldest-first").push("entityHardCaps");
+        ENTITY_HARD_CAPS_ENABLED = builder.comment("Enable hard per-type and total entity caps (culls excess immediately)")
+                .define("hardCapsEnabled", true);
+        ENTITY_CAP_TOTAL = builder.comment("Maximum total loaded entities across all dimensions (0 = disabled)")
+                .defineInRange("capTotal", 500, 0, 10000);
+        ENTITY_CAP_PER_TYPE = builder.comment("Maximum entities of a single type across all dimensions (0 = disabled)")
+                .defineInRange("capPerType", 75, 0, 2000);
+        ENTITY_CAP_PASSIVE_MOBS = builder.comment("Hard cap for all passive/ambient mobs combined (crows, sheep, raccoons, etc.)")
+                .defineInRange("capPassiveMobs", 200, 0, 2000);
+        ENTITY_CAP_HOSTILE_MOBS = builder.comment("Hard cap for all hostile mobs combined")
+                .defineInRange("capHostileMobs", 150, 0, 2000);
+        ENTITY_CAP_MINECARTS = builder.comment("Hard cap for all minecart entities combined")
+                .defineInRange("capMinecarts", 50, 0, 500);
+        ENTITY_HARD_CAP_CHECK_INTERVAL = builder.comment("Ticks between hard cap enforcement checks (20 = every second)")
+                .defineInRange("hardCapCheckIntervalTicks", 100, 20, 6000);
+        builder.pop();
+
+        builder.comment("Entity Tick Skipping - reduces CPU by skipping ticks for passive mobs").push("entityTickSkip");
+        ENTITY_TICK_SKIP_ENABLED = builder.comment("Enable tick skipping for passive mobs (animals, ambient)")
+                .define("tickSkipEnabled", true);
+        ENTITY_TICK_SKIP_PASSIVE_NEAR_INTERVAL = builder.comment("Tick interval for passive mobs near players (4 = tick every 4th tick = 5 TPS equivalent)")
+                .defineInRange("passiveNearInterval", 4, 1, 40);
+        ENTITY_TICK_SKIP_PASSIVE_DISTANT_INTERVAL = builder.comment("Tick interval for passive mobs in distant chunks (8 = tick every 8th tick)")
+                .defineInRange("passiveDistantInterval", 8, 1, 80);
+        ENTITY_TICK_SKIP_TPS_THRESHOLD = builder.comment("TPS below which passive mob tick intervals are doubled as emergency measure")
+                .defineInRange("tpsThresholdForDoubling", 15, 5, 20);
         builder.pop();
 
         builder.comment("World Border Settings").push("border");
@@ -212,8 +255,8 @@ public class ServerConfig {
                 .comment("Ticks between war status recalculations (72000 = 1 hour)")
                 .defineInRange("buffRecalculationIntervalTicks", 72000, 1200, 1728000);
         BUFF_APPLICATION_INTERVAL_TICKS = builder
-                .comment("Ticks between buff applications (600 = 30 seconds)")
-                .defineInRange("buffApplicationIntervalTicks", 600, 100, 72000);
+                .comment("Ticks between buff applications (1200 = 60 seconds, was 600 = 30 s)")
+                .defineInRange("buffApplicationIntervalTicks", 1200, 100, 72000);
         KILL_SCORE_WEIGHT = builder
                 .comment("Score weight per faction kill in war calculation")
                 .defineInRange("killScoreWeight", 1, 0, 100);
@@ -251,8 +294,8 @@ public class ServerConfig {
 
         builder.comment("Gamification Settings").push("gamification");
         SCOREBOARD_UPDATE_INTERVAL_TICKS = builder
-                .comment("Ticks between sidebar scoreboard updates (600 = 30 seconds)")
-                .defineInRange("scoreboardUpdateIntervalTicks", 600, 100, 6000);
+                .comment("Ticks between sidebar scoreboard updates (1200 = 60 seconds, was 600 = 30 s)")
+                .defineInRange("scoreboardUpdateIntervalTicks", 1200, 100, 6000);
         CHAT_FACTION_PREFIX_ENABLED = builder
                 .comment("Enable faction and rank prefixes in chat messages")
                 .define("chatFactionPrefixEnabled", true);

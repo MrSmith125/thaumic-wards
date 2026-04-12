@@ -50,10 +50,47 @@ public class StressTestCommand {
      * Drives the active player simulation — moves bots, loads chunks, spawns mobs.
      */
     public static void tickSimulation(ServerWorld world) {
-        if (!simulationActive || simulatedPlayers.isEmpty()) return;
+        if (!simulationActive) return;
         simTickCounter++;
 
-        // Move each simulated player every 20 ticks (1 second) — like a real player walking
+        // Gradually activate pending bots — 1 new player every 10 seconds
+        if (!pendingPlayers.isEmpty()) {
+            rampUpCounter++;
+            if (rampUpCounter >= TICKS_BETWEEN_NEW_PLAYER) {
+                rampUpCounter = 0;
+                SimulatedPlayer newBot = pendingPlayers.remove(0);
+                newBot.active = true;
+                simulatedPlayers.add(newBot);
+
+                // Load initial chunks for this new bot
+                ChunkPos cp = new ChunkPos(new BlockPos(newBot.x, 64, newBot.z));
+                for (int dx = -5; dx <= 5; dx++) {
+                    for (int dz = -5; dz <= 5; dz++) {
+                        if (dx * dx + dz * dz <= 25) {
+                            world.getChunk(cp.x + dx, cp.z + dz);
+                        }
+                    }
+                }
+
+                int total = simulatedPlayers.size();
+                int remaining = pendingPlayers.size();
+                if (simSource != null) {
+                    double tps = TPSMonitor.getCurrentTPS();
+                    long mem = getMemMB();
+                    TextFormatting tpsColor = tps >= 18 ? TextFormatting.GREEN : tps >= 15 ? TextFormatting.YELLOW : TextFormatting.RED;
+                    simSource.sendSuccess(new StringTextComponent(String.format(
+                            "[+1 Player] %d active, %d pending | TPS: %.1f | Mem: %dMB",
+                            total, remaining, tps, mem)).withStyle(tpsColor), false);
+                }
+
+                ThaumicWards.LOGGER.info("Simulation: activated bot {} ({} pending), TPS: {}",
+                        total, remaining, String.format("%.1f", TPSMonitor.getCurrentTPS()));
+            }
+        }
+
+        if (simulatedPlayers.isEmpty()) return;
+
+        // Move each simulated player every 20 ticks (1 second)
         if (simTickCounter % 20 == 0) {
             Random rng = new Random(simTickCounter);
             int chunksLoaded = 0;
@@ -180,11 +217,17 @@ public class StressTestCommand {
         }
     }
 
+    // Pending bots waiting to be activated (gradual ramp-up)
+    private static final List<SimulatedPlayer> pendingPlayers = new ArrayList<>();
+    private static int rampUpCounter = 0;
+    private static final int TICKS_BETWEEN_NEW_PLAYER = 200; // 10 seconds between each new bot
+
     private static class SimulatedPlayer {
         int x, z;
         double angle;
         int moveCount = 0;
-        boolean isGrinder = false; // ~1 in 6 players runs a mob grinder
+        boolean isGrinder = false;
+        boolean active = false; // only active bots move and load chunks
 
         SimulatedPlayer(int x, int z, double angle) {
             this.x = x; this.z = z; this.angle = angle;
@@ -643,8 +686,10 @@ public class StressTestCommand {
             Random rng = new Random(12345);
             int hotspotSpacing = 200;
 
-            // Create simulated players spread in concentric rings
+            // Create all simulated players but put them in pending queue
             simulatedPlayers.clear();
+            pendingPlayers.clear();
+            rampUpCounter = 0;
             int spotsPerRing = 8;
             int ring = 0;
             int spotInRing = 0;
@@ -656,33 +701,32 @@ public class StressTestCommand {
                 int hz = origin.getZ() + (int)(Math.sin(angle) * dist) + rng.nextInt(100) - 50;
                 double walkAngle = rng.nextDouble() * 2 * Math.PI;
                 SimulatedPlayer sim = new SimulatedPlayer(hx, hz, walkAngle);
-                // ~1 in 6 players runs a mob grinder (stays in place, rapid kills + loot + XP)
                 if (i % 6 == 0) {
                     sim.isGrinder = true;
-                    sim.angle = 0; // grinders don't move
+                    sim.angle = 0;
                 }
-                simulatedPlayers.add(sim);
+                pendingPlayers.add(sim);
 
                 spotInRing++;
                 if (spotInRing >= spotsPerRing * (ring + 1)) { spotInRing = 0; ring++; }
             }
 
-            // Initial chunk load for all starting positions
-            src.sendSuccess(msg("Loading initial chunks for all " + playerCount + " positions...", TextFormatting.GOLD), false);
-            int initialChunks = 0;
-            for (SimulatedPlayer sim : simulatedPlayers) {
-                ChunkPos cp = new ChunkPos(new BlockPos(sim.x, 64, sim.z));
+            // Activate the first bot immediately
+            if (!pendingPlayers.isEmpty()) {
+                SimulatedPlayer first = pendingPlayers.remove(0);
+                first.active = true;
+                simulatedPlayers.add(first);
+                ChunkPos cp = new ChunkPos(new BlockPos(first.x, 64, first.z));
                 for (int dx = -5; dx <= 5; dx++) {
                     for (int dz = -5; dz <= 5; dz++) {
                         if (dx * dx + dz * dz <= 25) {
                             world.getChunk(cp.x + dx, cp.z + dz);
-                            initialChunks++;
                         }
                     }
                 }
             }
 
-            // Start the tick-driven simulation
+            // Start the tick-driven simulation with gradual ramp-up
             simulationActive = true;
             simTickCounter = 0;
             simSource = src;
@@ -690,18 +734,21 @@ public class StressTestCommand {
             simStartTps = startTps;
             simStartMem = startMem;
 
+            int rampMinutes = (playerCount * TICKS_BETWEEN_NEW_PLAYER / 20) / 60;
+
             src.sendSuccess(msg("", TextFormatting.WHITE), false);
-            src.sendSuccess(header("SIMULATION ACTIVE"), false);
-            src.sendSuccess(stat("Simulated players", String.valueOf(playerCount)), false);
-            src.sendSuccess(stat("Initial chunks loaded", String.valueOf(initialChunks)), false);
+            src.sendSuccess(header("SIMULATION STARTING - GRADUAL RAMP-UP"), false);
+            src.sendSuccess(stat("Target players", String.valueOf(playerCount)), false);
+            src.sendSuccess(stat("Ramp-up rate", "1 new player every 10 seconds"), false);
+            src.sendSuccess(stat("Time to full load", rampMinutes + " minutes"), false);
             src.sendSuccess(stat("Spacing", hotspotSpacing + " blocks apart"), false);
             src.sendSuccess(msg("", TextFormatting.WHITE), false);
-            src.sendSuccess(msg("Players are now WALKING through the world, loading new chunks every second.", TextFormatting.GREEN), false);
-            src.sendSuccess(msg("Status updates every 30 seconds. Watch TPS with /thaumicwards lagmap", TextFormatting.GRAY), false);
-            src.sendSuccess(msg("Run /thaumicwards stresstest cleanup to stop the simulation.", TextFormatting.YELLOW), false);
+            src.sendSuccess(msg("Players will join gradually, just like a real server filling up.", TextFormatting.GREEN), false);
+            src.sendSuccess(msg("Watch the TPS impact as each player joins.", TextFormatting.GRAY), false);
+            src.sendSuccess(msg("Run /thaumicwards stresstest cleanup to stop.", TextFormatting.YELLOW), false);
 
-            ThaumicWards.LOGGER.info("Started {}-player movement simulation with {} initial chunks",
-                    playerCount, initialChunks);
+            ThaumicWards.LOGGER.info("Started {}-player gradual simulation (1 bot / 10 sec, ~{} min to full)",
+                    playerCount, rampMinutes);
 
         } catch (Exception e) {
             src.sendFailure(msg("Must be run by a player. Error: " + e.getMessage(), TextFormatting.RED));

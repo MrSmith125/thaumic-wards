@@ -404,10 +404,12 @@ public class AutoOptimizer {
             String content = new String(Files.readAllBytes(file), StandardCharsets.UTF_8);
             String original = content;
 
-            // Enable memory-saving mixins (only if not already set)
-            if (!content.contains("mixin.perf.clear_mixin_classinfo=true")) {
-                content += "\nmixin.perf.clear_mixin_classinfo=true\n";
-                log("ModernFix", "Enabled clear_mixin_classinfo (frees mixin metadata after launch)");
+            // NOTE: Do NOT enable clear_mixin_classinfo - it crashes on dedicated servers
+            // by trying to audit IBakedModel (a client-only class). If it was previously
+            // enabled by us, disable it.
+            if (content.contains("mixin.perf.clear_mixin_classinfo=true")) {
+                content = content.replace("mixin.perf.clear_mixin_classinfo=true", "mixin.perf.clear_mixin_classinfo=false");
+                log("ModernFix", "Disabled clear_mixin_classinfo (crashes on dedicated server)");
                 count++;
             }
             if (!content.contains("mixin.perf.deduplicate_location=true")) {
@@ -651,27 +653,111 @@ public class AutoOptimizer {
         if (!Files.exists(spawnFile)) return 0;
         try {
             String content = new String(Files.readAllBytes(spawnFile), StandardCharsets.UTF_8).trim();
-            // Only write rules if the file is empty (just "[]")
-            if (!"[]".equals(content)) return 0;
+            // Always overwrite — we now own these rules for server performance
+            // Skip only if our marker comment is already present (avoid re-writing every startup)
+            if (content.contains("ThaumicWards-managed")) return 0;
 
+            // Rules are ordered: specific individual mob caps first (highest priority in InControl),
+            // then per-mod caps, then vanilla overrides.
             String rules = "[\n" +
-                "  {\"_comment\": \"Cap Alex's Mobs at 40\", \"mod\": \"alexsmobs\", " +
-                "\"maxcount\": {\"amount\": 40, \"mod\": \"alexsmobs\"}, \"result\": \"deny\"},\n" +
-                "  {\"_comment\": \"Cap Ice and Fire at 30\", \"mod\": \"iceandfire\", " +
-                "\"maxcount\": {\"amount\": 30, \"mod\": \"iceandfire\"}, \"result\": \"deny\"},\n" +
-                "  {\"_comment\": \"Cap Mowzie's at 20\", \"mod\": \"mowziesmobs\", " +
-                "\"maxcount\": {\"amount\": 20, \"mod\": \"mowziesmobs\"}, \"result\": \"deny\"},\n" +
-                "  {\"_comment\": \"Cap Quark mobs at 25\", \"mod\": \"quark\", " +
-                "\"maxcount\": {\"amount\": 25, \"mod\": \"quark\"}, \"result\": \"deny\"},\n" +
-                "  {\"_comment\": \"Cap Ars Nouveau at 20\", \"mod\": \"ars_nouveau\", " +
-                "\"maxcount\": {\"amount\": 20, \"mod\": \"ars_nouveau\"}, \"result\": \"deny\"},\n" +
-                "  {\"_comment\": \"Limit dragons to 3\", \"mob\": [\"iceandfire:fire_dragon\", " +
-                "\"iceandfire:ice_dragon\", \"iceandfire:lightning_dragon\"], " +
-                "\"maxcount\": {\"amount\": 3}, \"result\": \"deny\"}\n" +
+                // ── Marker so we know we wrote this ──────────────────────────────────────
+                "  {\"_comment\": \"ThaumicWards-managed spawn rules - do not edit manually\"},\n" +
+
+                // ── Alex's Mobs: individual high-count offenders ─────────────────────────
+                "  {\"_comment\": \"Cap crows (top offender: 417 seen) to 30 per world\",\n" +
+                "   \"mob\": \"alexsmobs:crow\",\n" +
+                "   \"maxcount\": {\"amount\": 30}, \"result\": \"deny\"},\n" +
+
+                "  {\"_comment\": \"Cap raccoons to 25 per world\",\n" +
+                "   \"mob\": \"alexsmobs:raccoon\",\n" +
+                "   \"maxcount\": {\"amount\": 25}, \"result\": \"deny\"},\n" +
+
+                "  {\"_comment\": \"Cap emu to 20\",\n" +
+                "   \"mob\": \"alexsmobs:emu\",\n" +
+                "   \"maxcount\": {\"amount\": 20}, \"result\": \"deny\"},\n" +
+
+                "  {\"_comment\": \"Cap seagull to 20\",\n" +
+                "   \"mob\": \"alexsmobs:seagull\",\n" +
+                "   \"maxcount\": {\"amount\": 20}, \"result\": \"deny\"},\n" +
+
+                "  {\"_comment\": \"Cap bald eagle to 15\",\n" +
+                "   \"mob\": \"alexsmobs:bald_eagle\",\n" +
+                "   \"maxcount\": {\"amount\": 15}, \"result\": \"deny\"},\n" +
+
+                "  {\"_comment\": \"Cap Alex's Mobs total to 20 per mod\",\n" +
+                "   \"mod\": \"alexsmobs\",\n" +
+                "   \"maxcount\": {\"amount\": 20, \"mod\": \"alexsmobs\"}, \"result\": \"deny\"},\n" +
+
+                // ── Ice and Fire ─────────────────────────────────────────────────────────
+                "  {\"_comment\": \"Limit fire/ice/lightning dragons to 2 total\",\n" +
+                "   \"mob\": [\"iceandfire:fire_dragon\", \"iceandfire:ice_dragon\", \"iceandfire:lightning_dragon\"],\n" +
+                "   \"maxcount\": {\"amount\": 2}, \"result\": \"deny\"},\n" +
+
+                "  {\"_comment\": \"Limit hippogryphs to 8 total\",\n" +
+                "   \"mob\": \"iceandfire:hippogryph\",\n" +
+                "   \"maxcount\": {\"amount\": 8}, \"result\": \"deny\"},\n" +
+
+                "  {\"_comment\": \"Cap Ice and Fire total at 15 per mod\",\n" +
+                "   \"mod\": \"iceandfire\",\n" +
+                "   \"maxcount\": {\"amount\": 15, \"mod\": \"iceandfire\"}, \"result\": \"deny\"},\n" +
+
+                // ── Quark ────────────────────────────────────────────────────────────────
+                "  {\"_comment\": \"Cap Quark crabs and other passive mobs at 12 per type\",\n" +
+                "   \"mod\": \"quark\",\n" +
+                "   \"maxcount\": {\"amount\": 12, \"mod\": \"quark\"}, \"result\": \"deny\"},\n" +
+
+                // ── Pixies (high-cost AI, 213 seen) ─────────────────────────────────────
+                "  {\"_comment\": \"Cap pixies at 20 total — high AI cost mob\",\n" +
+                "   \"mob\": [\"ars_nouveau:wilden_stalker\", \"ars_nouveau:wilden_guardian\",\n" +
+                "            \"ars_nouveau:wilden_hunter\", \"ars_nouveau:wilden_witch\",\n" +
+                "            \"ars_nouveau:starbuncle\", \"ars_nouveau:whirlisprig\",\n" +
+                "            \"ars_nouveau:drygmy\", \"ars_nouveau:wixie\"],\n" +
+                "   \"maxcount\": {\"amount\": 20}, \"result\": \"deny\"},\n" +
+
+                "  {\"_comment\": \"Cap Ars Nouveau total at 15 per mod\",\n" +
+                "   \"mod\": \"ars_nouveau\",\n" +
+                "   \"maxcount\": {\"amount\": 15, \"mod\": \"ars_nouveau\"}, \"result\": \"deny\"},\n" +
+
+                // ── Mowzie's Mobs ────────────────────────────────────────────────────────
+                "  {\"_comment\": \"Cap Mowzie's mobs at 10 total\",\n" +
+                "   \"mod\": \"mowziesmobs\",\n" +
+                "   \"maxcount\": {\"amount\": 10, \"mod\": \"mowziesmobs\"}, \"result\": \"deny\"},\n" +
+
+                // ── Vanilla passive mob overrides ────────────────────────────────────────
+                "  {\"_comment\": \"Cap vanilla sheep to 40 per world (311 seen)\",\n" +
+                "   \"mob\": \"minecraft:sheep\",\n" +
+                "   \"maxcount\": {\"amount\": 40}, \"result\": \"deny\"},\n" +
+
+                "  {\"_comment\": \"Cap vanilla cows to 40 per world (228 seen)\",\n" +
+                "   \"mob\": \"minecraft:cow\",\n" +
+                "   \"maxcount\": {\"amount\": 40}, \"result\": \"deny\"},\n" +
+
+                "  {\"_comment\": \"Cap vanilla chickens to 40 per world (289 seen)\",\n" +
+                "   \"mob\": \"minecraft:chicken\",\n" +
+                "   \"maxcount\": {\"amount\": 40}, \"result\": \"deny\"},\n" +
+
+                "  {\"_comment\": \"Cap vanilla pigs to 30 per world\",\n" +
+                "   \"mob\": \"minecraft:pig\",\n" +
+                "   \"maxcount\": {\"amount\": 30}, \"result\": \"deny\"},\n" +
+
+                "  {\"_comment\": \"Cap vanilla rabbits to 25 per world\",\n" +
+                "   \"mob\": \"minecraft:rabbit\",\n" +
+                "   \"maxcount\": {\"amount\": 25}, \"result\": \"deny\"},\n" +
+
+                "  {\"_comment\": \"Cap vanilla bats to 20 per world\",\n" +
+                "   \"mob\": \"minecraft:bat\",\n" +
+                "   \"maxcount\": {\"amount\": 20}, \"result\": \"deny\"},\n" +
+
+                // ── Chest minecarts (255 seen — likely dungeon loot, cap spawns) ─────────
+                "  {\"_comment\": \"Cap chest minecarts to 30 per world (255 seen in stress test)\",\n" +
+                "   \"mob\": \"minecraft:chest_minecart\",\n" +
+                "   \"maxcount\": {\"amount\": 30}, \"result\": \"deny\"}\n" +
+
                 "]";
 
             Files.write(spawnFile, rules.getBytes(StandardCharsets.UTF_8));
-            log("InControl", "Wrote entity spawn caps: Alex's 40, I&F 30, Mowzie's 20, Quark 25, Ars 20, Dragons 3");
+            log("InControl", "Wrote aggressive entity spawn caps: crows 30, raccoons 25, sheep/cows/chickens 40, " +
+                "dragons 2, Alex's 20, I&F 15, Quark 12, Ars 15, Mowzie's 10, chest_minecarts 30");
             return 1;
         } catch (IOException e) {
             ThaumicWards.LOGGER.warn("Failed to write InControl spawn rules: {}", e.getMessage());
@@ -836,11 +922,16 @@ public class AutoOptimizer {
 
             boolean changed = false;
 
-            if ("10".equals(props.getProperty("view-distance"))) {
-                props.setProperty("view-distance", "6");
-                log("server.properties", "view-distance 10->6 (62% fewer chunks per player)");
-                changed = true; count++;
-            }
+            // Reduce view-distance to 6 if it's higher (each step saves ~28% chunk-tick load)
+            String vd = props.getProperty("view-distance", "10");
+            try {
+                if (Integer.parseInt(vd) > 6) {
+                    props.setProperty("view-distance", "6");
+                    log("server.properties", "view-distance " + vd + "->6 (~28% fewer chunk-ticks per player)");
+                    changed = true; count++;
+                }
+            } catch (NumberFormatException ignored) {}
+
             if ("true".equals(props.getProperty("sync-chunk-writes"))) {
                 props.setProperty("sync-chunk-writes", "false");
                 log("server.properties", "sync-chunk-writes true->false (async chunk saves)");
@@ -856,6 +947,29 @@ public class AutoOptimizer {
                 log("server.properties", "allow-flight false->true (prevents kicks from mod flight)");
                 changed = true; count++;
             }
+
+            // Reduce entity-broadcast-range-percentage from 100 to 70.
+            // Entities 30% farther than vanilla tracking range still send packets at full rate
+            // when at 100; 70 cuts the broadcast volume for distant players significantly.
+            String ebr = props.getProperty("entity-broadcast-range-percentage", "100");
+            try {
+                if (Integer.parseInt(ebr) > 70) {
+                    props.setProperty("entity-broadcast-range-percentage", "70");
+                    log("server.properties", "entity-broadcast-range-percentage " + ebr + "->70 (fewer entity packets to distant players)");
+                    changed = true; count++;
+                }
+            } catch (NumberFormatException ignored) {}
+
+            // Reduce network-compression-threshold: 256 bytes is fine for a LAN/VPS but
+            // 128 compresses more aggressively and helps with many small packets (position updates).
+            String nct = props.getProperty("network-compression-threshold", "256");
+            try {
+                if (Integer.parseInt(nct) > 128) {
+                    props.setProperty("network-compression-threshold", "128");
+                    log("server.properties", "network-compression-threshold " + nct + "->128 (compress more packets, helps with 60+ players)");
+                    changed = true; count++;
+                }
+            } catch (NumberFormatException ignored) {}
 
             if (changed) {
                 props.store(Files.newBufferedWriter(file), "Optimized by Thaumic Wards AutoOptimizer");

@@ -27,13 +27,15 @@ import java.util.List;
 
 public class ServerTickHandler {
 
-    // Stagger counters so periodic tasks don't all fire on the same tick
-    private static int claimParticleCounter = 20;
-    private static int progressionCounter = 0;
-    private static int warStatusCounter = 300;
-    private static int buffCounter = 150;
-    private static int scoreboardCounter = 0;
-    private static int adaptiveCounter = 100; // staggered
+    // Stagger counters so periodic tasks don't all fire on the same tick.
+    // Offsets are deliberately spread so no two heavy tasks align on the same tick.
+    private static int claimParticleCounter = 20;   // offset 20
+    private static int progressionCounter = 80;      // offset 80
+    private static int warStatusCounter = 300;       // offset 300
+    private static int buffCounter = 150;            // offset 150
+    private static int scoreboardCounter = 40;       // offset 40
+    private static int adaptiveCounter = 100;        // offset 100 — check every 100t (was 200)
+    private static int profilerCounter = 60;         // offset 60
 
     @SubscribeEvent
     public static void onServerTick(TickEvent.WorldTickEvent event) {
@@ -51,33 +53,37 @@ public class ServerTickHandler {
         // running counters 2-3x fast when nether/end are loaded
         if (world.dimension() != World.OVERWORLD) return;
 
-        // Track TPS
+        // Track TPS — always first
         TPSMonitor.recordTick();
 
-        // Performance profiler: clear entity counters and record player count
-        PerformanceProfiler profiler = PerformanceProfiler.getInstance();
-        if (profiler.isEnabled()) {
-            profiler.clearEntityCounters();
-            profiler.recordPlayerCount(world.players().size());
-        }
-
-        // Update tick rate manager for distant chunk tracking
+        // Update tick rate manager for distant chunk tracking (self-throttled internally)
         TickRateManager.tick(world);
 
-        // Reset chunk load counter each tick
+        // Reset per-tick bookkeeping counters (cheap)
         ChunkLoadHandler.resetCounter();
-
-        // Reset redstone throttle counters
         com.thaumicwards.performance.RedstoneThrottler.resetCounts();
 
-        // Tick stress test simulation (if active)
+        // Tick stress test simulation only when active (early-exit if inactive)
         com.thaumicwards.commands.StressTestCommand.tickSimulation(world);
 
-        // Adaptive TPS throttler - every 200 ticks
+        // Adaptive TPS throttler — every 100 ticks (5 s) instead of 200 (10 s)
+        // Faster reaction time without meaningful overhead.
         adaptiveCounter++;
-        if (adaptiveCounter >= 200) {
+        if (adaptiveCounter >= 100) {
             adaptiveCounter = 0;
             com.thaumicwards.performance.AdaptiveThrottler.tick();
+        }
+
+        // Performance profiler snapshot — every 20 ticks (1 s) so it doesn't hit every tick.
+        // clearEntityCounters() + recordPlayerCount() are cheap but not free.
+        profilerCounter++;
+        if (profilerCounter >= 20) {
+            profilerCounter = 0;
+            PerformanceProfiler profiler = PerformanceProfiler.getInstance();
+            if (profiler.isEnabled()) {
+                profiler.clearEntityCounters();
+                profiler.recordPlayerCount(world.players().size());
+            }
         }
 
         // Progression system — award playtime points every 1200 ticks (1 minute)
@@ -87,28 +93,28 @@ public class ServerTickHandler {
             ProgressionManager.tick(world);
         }
 
-        // War status recalculation
+        // War status recalculation (hourly by default)
         warStatusCounter++;
         if (warStatusCounter >= ServerConfig.BUFF_RECALCULATION_INTERVAL_TICKS.get()) {
             warStatusCounter = 0;
             FactionWarStatus.recalculate();
         }
 
-        // Faction buff application
+        // Faction buff application — use AdaptiveThrottler interval so it backs off under load
         buffCounter++;
-        if (buffCounter >= ServerConfig.BUFF_APPLICATION_INTERVAL_TICKS.get()) {
+        if (buffCounter >= com.thaumicwards.performance.AdaptiveThrottler.getEffectiveBuffInterval()) {
             buffCounter = 0;
             FactionBuffHandler.applyBuffs(world);
         }
 
-        // Scoreboard update
+        // Scoreboard update — backed off by AdaptiveThrottler under load
         scoreboardCounter++;
         if (scoreboardCounter >= com.thaumicwards.performance.AdaptiveThrottler.getEffectiveScoreboardInterval()) {
             scoreboardCounter = 0;
             FactionScoreboard.updateSidebar(world.getServer());
         }
 
-        // Send claim boundary particles to nearby players every 40 ticks
+        // Claim boundary particles to nearby players — backed off by AdaptiveThrottler under load
         claimParticleCounter++;
         if (claimParticleCounter >= com.thaumicwards.performance.AdaptiveThrottler.getEffectiveClaimParticleInterval()) {
             claimParticleCounter = 0;

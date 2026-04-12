@@ -7,15 +7,19 @@ public class AdaptiveThrottler {
 
     public enum ThrottleLevel { NONE, LIGHT, MODERATE, SEVERE }
 
-    private static final double TPS_LIGHT = 18.0, TPS_MODERATE = 15.0, TPS_SEVERE = 12.0, TPS_RECOVERY = 19.0;
+    // Kick in earlier: LIGHT at <19, MODERATE at <17, SEVERE at <14 (was 18/15/12).
+    // Recovery requires sustained TPS≥19.5 for 5 consecutive checks (was ≥19, 3 checks)
+    // to avoid thrashing when TPS hovers just above a boundary.
+    private static final double TPS_LIGHT = 19.0, TPS_MODERATE = 17.0, TPS_SEVERE = 14.0, TPS_RECOVERY = 19.5;
     private static ThrottleLevel currentLevel = ThrottleLevel.NONE;
     private static int recoveryStreak = 0;
-    private static final int RECOVERY_CYCLES = 3;
+    private static final int RECOVERY_CYCLES = 5;
 
     private static boolean baselinesCaptured = false;
-    private static int baseTickInterval, baseThreshold, baseScoreboardInterval;
+    private static int baseTickInterval, baseThreshold, baseScoreboardInterval, baseBuffInterval;
     private static int overrideTickInterval = -1, overrideThreshold = -1;
     private static int overrideScoreboardInterval = -1, overrideParticleInterval = -1;
+    private static int overrideBuffInterval = -1;
 
     public static void tick() {
         if (!ServerConfig.ADAPTIVE_THROTTLE_ENABLED.get()) {
@@ -58,11 +62,16 @@ public class AdaptiveThrottler {
         return overrideParticleInterval > 0 ? overrideParticleInterval : 40;
     }
 
+    public static int getEffectiveBuffInterval() {
+        return overrideBuffInterval > 0 ? overrideBuffInterval : com.thaumicwards.config.ServerConfig.BUFF_APPLICATION_INTERVAL_TICKS.get();
+    }
+
     private static void captureBaselines() {
         if (!baselinesCaptured) {
             baseTickInterval = ServerConfig.DISTANT_CHUNK_TICK_INTERVAL.get();
             baseThreshold = ServerConfig.DISTANT_CHUNK_THRESHOLD.get();
             baseScoreboardInterval = ServerConfig.SCOREBOARD_UPDATE_INTERVAL_TICKS.get();
+            baseBuffInterval = ServerConfig.BUFF_APPLICATION_INTERVAL_TICKS.get();
             baselinesCaptured = true;
         }
     }
@@ -72,27 +81,38 @@ public class AdaptiveThrottler {
         currentLevel = level;
         switch (level) {
             case LIGHT:
-                overrideTickInterval = baseTickInterval * 2;
-                overrideThreshold = -1; overrideScoreboardInterval = -1; overrideParticleInterval = -1;
-                ThaumicWards.LOGGER.warn("[AdaptiveThrottler] TPS={} — LIGHT: tick interval {}->{}",
-                        String.format("%.1f", tps), baseTickInterval, overrideTickInterval);
+                // Distant-chunk entity ticks at 3x base, scoreboard slows 2x, particles slightly slower
+                overrideTickInterval = baseTickInterval * 3;
+                overrideThreshold = Math.max(1, baseThreshold - 2);
+                overrideScoreboardInterval = baseScoreboardInterval * 2;
+                overrideParticleInterval = 60;
+                overrideBuffInterval = -1;
+                ThaumicWards.LOGGER.warn("[AdaptiveThrottler] TPS={} — LIGHT: tick interval {}->{}, threshold {}->{}, scoreboard {}->{}",
+                        String.format("%.1f", tps), baseTickInterval, overrideTickInterval,
+                        baseThreshold, overrideThreshold, baseScoreboardInterval, overrideScoreboardInterval);
                 break;
             case MODERATE:
-                overrideTickInterval = baseTickInterval * 4;
+                // 5x entity tick interval, tighter near-player radius, scoreboard 3x, particles every 80 ticks
+                overrideTickInterval = baseTickInterval * 5;
                 overrideThreshold = Math.max(1, baseThreshold - 4);
-                overrideScoreboardInterval = -1; overrideParticleInterval = -1;
-                ThaumicWards.LOGGER.warn("[AdaptiveThrottler] TPS={} — MODERATE: tick interval {}->{}," +
-                        " threshold {}->{}",
+                overrideScoreboardInterval = baseScoreboardInterval * 3;
+                overrideParticleInterval = 80;
+                overrideBuffInterval = baseBuffInterval * 2;
+                ThaumicWards.LOGGER.warn("[AdaptiveThrottler] TPS={} — MODERATE: tick interval {}->{}, threshold {}->{}, scoreboard {}->{}",
                         String.format("%.1f", tps), baseTickInterval, overrideTickInterval,
-                        baseThreshold, overrideThreshold);
+                        baseThreshold, overrideThreshold, baseScoreboardInterval, overrideScoreboardInterval);
                 break;
             case SEVERE:
-                overrideTickInterval = baseTickInterval * 6;
-                overrideThreshold = Math.max(1, baseThreshold - 6);
-                overrideScoreboardInterval = baseScoreboardInterval * 3;
-                overrideParticleInterval = 120;
-                ThaumicWards.LOGGER.warn("[AdaptiveThrottler] TPS={} — SEVERE: all throttles engaged",
-                        String.format("%.1f", tps));
+                // 8x entity tick interval, minimal near-player radius, scoreboard 6x, particles every 160 ticks,
+                // faction buffs at 3x to reduce per-tick work
+                overrideTickInterval = baseTickInterval * 8;
+                overrideThreshold = Math.max(1, baseThreshold - 5);
+                overrideScoreboardInterval = baseScoreboardInterval * 6;
+                overrideParticleInterval = 160;
+                overrideBuffInterval = baseBuffInterval * 3;
+                ThaumicWards.LOGGER.warn("[AdaptiveThrottler] TPS={} — SEVERE: all throttles maximally engaged" +
+                        " (tick *8, threshold -{}, scoreboard *6, particles every 160t, buffs *3)",
+                        String.format("%.1f", tps), 5);
                 break;
             default: break;
         }
@@ -112,6 +132,7 @@ public class AdaptiveThrottler {
     private static void restoreBaselines() {
         overrideTickInterval = -1; overrideThreshold = -1;
         overrideScoreboardInterval = -1; overrideParticleInterval = -1;
+        overrideBuffInterval = -1;
     }
 
     public static void reset() {

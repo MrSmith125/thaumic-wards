@@ -113,17 +113,20 @@ echo echo.
 echo java -Xmx8G -Xms4G ^
 echo   -XX:+UseG1GC ^
 echo   -XX:+ParallelRefProcEnabled ^
-echo   -XX:MaxGCPauseMillis=200 ^
+echo   -XX:MaxGCPauseMillis=150 ^
 echo   -XX:+UnlockExperimentalVMOptions ^
 echo   -XX:+DisableExplicitGC ^
 echo   -XX:+AlwaysPreTouch ^
+echo   -XX:+UseNUMA ^
+echo   -XX:ParallelGCThreads=20 ^
+echo   -XX:ConcGCThreads=5 ^
 echo   -XX:G1NewSizePercent=30 ^
 echo   -XX:G1MaxNewSizePercent=40 ^
 echo   -XX:G1HeapRegionSize=8M ^
 echo   -XX:G1ReservePercent=20 ^
 echo   -XX:G1HeapWastePercent=5 ^
 echo   -XX:G1MixedGCCountTarget=4 ^
-echo   -XX:InitiatingHeapOccupancyPercent=15 ^
+echo   -XX:InitiatingHeapOccupancyPercent=45 ^
 echo   -XX:G1MixedGCLiveThresholdPercent=90 ^
 echo   -XX:G1RSetUpdatingPauseTimePercent=5 ^
 echo   -XX:SurvivorRatio=32 ^
@@ -140,17 +143,20 @@ echo echo "Starting Thaumic Wards SMP Server..."
 echo java -Xmx8G -Xms4G \
 echo   -XX:+UseG1GC \
 echo   -XX:+ParallelRefProcEnabled \
-echo   -XX:MaxGCPauseMillis=200 \
+echo   -XX:MaxGCPauseMillis=150 \
 echo   -XX:+UnlockExperimentalVMOptions \
 echo   -XX:+DisableExplicitGC \
 echo   -XX:+AlwaysPreTouch \
+echo   -XX:+UseNUMA \
+echo   -XX:ParallelGCThreads=20 \
+echo   -XX:ConcGCThreads=5 \
 echo   -XX:G1NewSizePercent=30 \
 echo   -XX:G1MaxNewSizePercent=40 \
 echo   -XX:G1HeapRegionSize=8M \
 echo   -XX:G1ReservePercent=20 \
 echo   -XX:G1HeapWastePercent=5 \
 echo   -XX:G1MixedGCCountTarget=4 \
-echo   -XX:InitiatingHeapOccupancyPercent=15 \
+echo   -XX:InitiatingHeapOccupancyPercent=45 \
 echo   -XX:G1MixedGCLiveThresholdPercent=90 \
 echo   -XX:G1RSetUpdatingPauseTimePercent=5 \
 echo   -XX:SurvivorRatio=32 \
