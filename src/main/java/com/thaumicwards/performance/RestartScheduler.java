@@ -182,6 +182,10 @@ public class RestartScheduler {
         }
         if (secondsLeft <= 90 && !savePending) {
             savePending = true;
+            // Run entity cleanup before saving to reduce world size and save time
+            EntityCleanup.runCleanup(server);
+            EntityCleanup.enforceHardCaps(server);
+            ThaumicWards.LOGGER.info("Pre-restart entity cleanup completed.");
             server.getCommands().performCommand(server.createCommandSourceStack(), "save-all flush");
             ThaumicWards.LOGGER.info("World save forced before restart.");
         }
